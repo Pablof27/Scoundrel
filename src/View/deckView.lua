@@ -58,13 +58,6 @@ function DeckView:update(dt)
     end
 end
 
-function DeckView:onMouseClick(mouseX, mouseY)
-    if not self:isInside(mouseX, mouseY) then
-        return
-    end
-    Game:perform(Actions.SkipRoomAction)
-end
-
 function DeckView:isInside(mouseX, mouseY)
     local cardWidth = GetQuadDimensions(Frames["cardFrames"][1]).width
     local cardHeight = GetQuadDimensions(Frames["cardFrames"][1]).height

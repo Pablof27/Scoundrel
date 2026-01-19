@@ -16,31 +16,6 @@ function CardView:new(card, x, y, interactive, visible)
     o.hoovered = false
     o.interactive = interactive ~= false
     o.visible = visible ~= false
-    o.actionButtons = {
-        Button:new {
-            x = o.pos.x + o.size.width / 2 - 20,
-            y = o.pos.y + 36,
-            width = 40,
-            height = 24,
-            text = "Play",
-            color = {HexToRgb("FFE97F7F")},
-            onClick = function()
-                Game:perform(Actions.PlayCardAction:new(card))
-            end
-        },
-        Button:new {
-            x = o.pos.x + o.size.width / 2 - 20,
-            y = o.pos.y + 65,
-            width = 40,
-            height = 24,
-            text = "Info",
-            color = {HexToRgb("FF6F9BED")},
-            onClick = function()
-                -- Placeholder for info action
-            end,
-            visible = card.suit ~= 0 and card.suit ~= 2
-        }
-    }
     return o
 end
 
@@ -48,8 +23,6 @@ function CardView:render()
     if not self.visible then
         return
     end
-
-    self:drawActionButtons()
 
     local yOffset = 0
     local xOffset = 0
@@ -64,21 +37,6 @@ function CardView:render()
     love.graphics.setColor(luminosity, luminosity, luminosity, 1)
     love.graphics.draw(Textures["cardFrames"], Frames["cardFrames"][2], self.pos.x + xOffset, self.pos.y + yOffset, 0, scale)
     love.graphics.draw(Textures["pips"], self.quad, self.pos.x + xOffset, self.pos.y + yOffset, 0, scale)
-end
-
-function CardView:drawActionButtons()
-    if Game.gameState.player.armor == nil then
-        self.actionButtons[2].visible = false
-    end
-    for _, button in ipairs(self.actionButtons) do
-        button:render()
-    end
-end
-
-function CardView:onClickButtons(mouseX, mouseY)
-    for _, button in ipairs(self.actionButtons) do
-        button:onMouseClick(mouseX, mouseY)
-    end
 end
 
 function CardView:onClick(i)
@@ -97,9 +55,6 @@ function CardView:update(dt)
     if not self.interactive then
         return
     end
-    -- if self.pos.x - self.targetPos.x >= 0.1 or self.pos.y - self.targetPos.y >= 0.1 then
-    --     return
-    -- end
 
     self.hoovered = false
     local mouseX, mouseY = push:toGame(love.mouse.getPosition())

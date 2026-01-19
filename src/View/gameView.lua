@@ -41,14 +41,6 @@ function GameView:update(dt)
 end
 
 function GameView:onMouseClick(mouseX, mouseY)
-    if self.selectedCardIdx ~= -1 then
-        self.roomCardViews[self.selectedCardIdx]:onClickButtons(mouseX, mouseY)
-        -- if self.selectedCardIdx == -1 then
-        --     return
-        -- end
-        return
-    end
-
     for i, cardView in ipairs(self.roomCardViews) do
         cardView.targetPos.y = cardView.anchor.y
         if cardView.visible and cardView:isInside(mouseX, mouseY) then
@@ -56,8 +48,6 @@ function GameView:onMouseClick(mouseX, mouseY)
             cardView:onClick(self.selectedCardIdx)
         end
     end
-
-    self.deckView:onMouseClick(mouseX, mouseY)
 end
 
 function GameView:initPlayArea(x, y, width, height, room, player)
