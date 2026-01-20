@@ -39,8 +39,8 @@ function CardView:render()
     love.graphics.draw(Textures["pips"], self.quad, self.pos.x + xOffset, self.pos.y + yOffset, 0, scale)
 end
 
-function CardView:onClick(i)
-    if i == -1 then
+function CardView:onClick()
+    if self.targetPos.y < self.anchor.y then
         self.targetPos.y = self.anchor.y
         return
     end

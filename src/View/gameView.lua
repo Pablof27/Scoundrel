@@ -9,9 +9,9 @@ PLAYER_AREA_SIZE = { width = 350, height = 100 }
 PLAYER_AREA_SPACING = 32
 
 function GameView:init(game)
+    self.state = game
     self.lifes = game.player.lifes
     GameView:initPlayArea(0, 16, WIDTH, HEIGHT - 16, game.room, game.player)
-    self.selectedCardIdx = -1
 end
 
 function GameView:onRoomChanged(game)
@@ -41,11 +41,15 @@ function GameView:update(dt)
 end
 
 function GameView:onMouseClick(mouseX, mouseY)
+    if self.deckView:onClick(mouseX, mouseY) then
+        return
+    end
     for i, cardView in ipairs(self.roomCardViews) do
-        cardView.targetPos.y = cardView.anchor.y
         if cardView.visible and cardView:isInside(mouseX, mouseY) then
-            self.selectedCardIdx = i == self.selectedCardIdx and -1 or i
-            cardView:onClick(self.selectedCardIdx)
+            self.selectedCardIdx = i
+            cardView:onClick()
+        else
+            cardView.targetPos.y = cardView.anchor.y
         end
     end
 end
@@ -62,6 +66,7 @@ function GameView:initRoomCardViews(room, center)
     local spacing = ROOM_SPACING + size.width
     local xOffset =  (spacing * (room.n - 1) + size.width) / 2
     local yOffset = size.height / 2
+    self.selectedCardIdx = -1
     self.roomCardViews = {}
     for i, card in ipairs(room.cards) do
         local x = center.x - xOffset

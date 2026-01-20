@@ -39,4 +39,8 @@ function Room:shuffledRoom()
     return cards
 end
 
+function Room:isRoomComplete()
+    return #self.cards == self.n
+end
+
 return Room

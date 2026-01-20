@@ -12,14 +12,14 @@ local UndoAction = setmetatable({
     shouldChangePrev = function() return false end
 }, PlayerAction)
 function UndoAction:execute(gameState)
-    gameState:goToPreviousStateIfPossible()
+    return gameState:goToPreviousStateIfPossible()
 end
 function UndoAction:notifyListener(listener, game)
 end
 
 local SkipRoomAction = setmetatable({}, PlayerAction)
 function SkipRoomAction:execute(gameState)
-    gameState:skipRoomIfPossible()
+    return gameState:skipRoomIfPossible()
 end
 function SkipRoomAction:notifyListener(listener, game)
     listener:onRoomChanged(game.gameState)
@@ -27,7 +27,7 @@ end
 
 local NextRoomAction = setmetatable({}, PlayerAction)
 function NextRoomAction:execute(gameState)
-    gameState:goToNextRoomIfPossible()
+    return gameState:nextRoomIfPossible()
 end
 function NextRoomAction:notifyListener(listener, game)
 end
@@ -40,7 +40,7 @@ local PlayCardAction = setmetatable({
     end
 }, PlayerAction)
 function PlayCardAction:execute(gameState)
-    gameState:playCardIfPossible(self.card, self.useArmor)
+    return gameState:playCardIfPossible(self.card, self.useArmor)
 end
 function PlayCardAction:notifyListener(listener, game)
     listener:onRoomChanged(game.gameState)

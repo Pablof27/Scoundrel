@@ -19,7 +19,7 @@ function GameState:start()
 end
 
 function GameState:skipRoomIfPossible()
-    if self.skippedLast then
+    if not self:canSkipRoom() then
         self.errorMsg = "Cannot skip two rooms in a row"
         return false
     end
@@ -28,6 +28,10 @@ function GameState:skipRoomIfPossible()
     self.drawPile:addToBottom(self.room:shuffledRoom())
     self.room:new(self.drawPile:drawCards(CARDS_PER_ROOM))
     return true
+end
+
+function GameState:canSkipRoom()
+    return not self.skippedLast and self.room:isRoomComplete()
 end
 
 function GameState:nextRoomIfPossible()
@@ -80,16 +84,16 @@ function GameState:playCardIfPossible(card, useArmor)
 end
 
 function GameState:nextState(playerAction)
-
-    print(playerAction)
-
     self.errorMsg = nil
 
     if not playerAction.shouldChangePrev then
         self.prevState = DeepCopy(self)
     end
 
-    playerAction:execute(self)
+    if not playerAction:execute(self) then
+        print("Action could not be executed: " .. tostring(self.errorMsg))
+    end
+
 end
 
 function GameState:addToDiscard(cards)

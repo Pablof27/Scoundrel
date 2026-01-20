@@ -40,14 +40,25 @@ function DeckView:render()
     love.graphics.rectangle("fill", self.pos.x + xOffset, self.pos.y - yOffset, squareSize, squareSize * 0.85, 4, 4)
     love.graphics.setColor(0.9, 0.9, 0.9, 1)
     love.graphics.setFont(Fonts["medium"])
-    if Game.gameState.skippedLast then
-        love.graphics.printf("No", self.pos.x + xOffset, self.pos.y - yOffset + 3, squareSize, "center")
-        love.graphics.printf("Skip", self.pos.x + xOffset, self.pos.y - yOffset + 23, squareSize, "center")
-    else
+    if Game.gameState:canSkipRoom()then
         love.graphics.printf("Skip", self.pos.x + xOffset, self.pos.y - yOffset + 3, squareSize, "center")
         love.graphics.printf("Room", self.pos.x + xOffset, self.pos.y - yOffset + 23, squareSize, "center")
+    else
+        love.graphics.printf("No", self.pos.x + xOffset, self.pos.y - yOffset + 3, squareSize, "center")
+        love.graphics.printf("Skip", self.pos.x + xOffset, self.pos.y - yOffset + 23, squareSize, "center")
     end
 
+end
+
+function DeckView:onClick(mouseX, mouseY)
+    if not self:isInside(mouseX, mouseY) then
+        return false
+    end
+    if not Game.gameState:canSkipRoom() then
+        return true
+    end
+    Game:perform(Actions.SkipRoomAction)
+    return true
 end
 
 function DeckView:update(dt)
