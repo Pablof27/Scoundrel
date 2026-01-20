@@ -1,7 +1,7 @@
 
 _ = require("src.dependencies")
 Game = require("src.Controller.game")
-GameView = require("src.View.gameView")
+local GameView = require("src.View.gameView")
 
 local function setupShaders()
     Shaders["background"]:send("colour_1", {HexToRgb(BACKGROUND_COLOR1)})

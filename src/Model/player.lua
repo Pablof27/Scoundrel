@@ -34,7 +34,7 @@ function Player:addWeapon(card)
 end
 
 function Player:takeDamage(card, useArmor)
-    if not useArmor then
+    if not useArmor or not self:hasArmor() then
         self.lifes = self.lifes - card.value
         return card
     end
@@ -44,21 +44,8 @@ function Player:takeDamage(card, useArmor)
     return {}
 end
 
-function Player:render(x, y)
-    love.graphics.setColor(0, 0, 0, 0.08)
-    love.graphics.rectangle("fill", x, y, 350, 100, 10, 10)
-    if self.armor == nil or self.armor.card == nil then
-        return
-    end
-    local spacing = 32
-    local n = #self.armor.defendedCards
-    local length = GetQuadDimensions(Frames["cardFrames"][1]).width + spacing * n
-    local xOffset = (350 - length) / 2
-    local yOffset = 3
-    self.armor.card:render(x + xOffset, y + yOffset)
-    for i, card in ipairs(self.armor.defendedCards) do
-        card:render(x + xOffset + spacing * i, y + yOffset)
-    end
+function Player:hasArmor()
+    return self.armor ~= nil and self.armor.card ~= nil
 end
 
 return Player

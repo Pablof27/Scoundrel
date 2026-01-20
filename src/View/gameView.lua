@@ -1,6 +1,6 @@
 
-CardView = require("src.View.cardView")
-DeckView = require("src.View.deckView")
+local CardView = require("src.View.cardView")
+local DeckView = require("src.View.deckView")
 
 local GameView = {}
 
@@ -27,6 +27,16 @@ function GameView:onPlayerChanged(game)
     GameView:initPlayerCardViews(game.player.armor, { x = x + width / 2, y = y + height / 2 + 64 })
 end
 
+function GameView:onCardPlayed(card)
+    self.selectedCardIdx = -1
+    for _, cardView in ipairs(self.roomCardViews) do
+        if cardView.card == card then
+            cardView.visible = false
+        end
+    end
+    self:onPlayerChanged(self.state)
+end
+
 function GameView:render()
     GameView.renderBackground()
     GameView.renderLifes(self.lifes)
@@ -44,12 +54,16 @@ function GameView:onMouseClick(mouseX, mouseY)
     if self.deckView:onClick(mouseX, mouseY) then
         return
     end
+    if self.selectedCardIdx ~= -1 and
+       self.roomCardViews[self.selectedCardIdx]:onClickButton(mouseX, mouseY) then
+        return
+    end
     for i, cardView in ipairs(self.roomCardViews) do
         if cardView.visible and cardView:isInside(mouseX, mouseY) then
             self.selectedCardIdx = i
-            cardView:onClick()
+            cardView:onSelected()
         else
-            cardView.targetPos.y = cardView.anchor.y
+            cardView:onUnselected()
         end
     end
 end

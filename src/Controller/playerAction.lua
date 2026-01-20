@@ -43,8 +43,7 @@ function PlayCardAction:execute(gameState)
     return gameState:playCardIfPossible(self.card, self.useArmor)
 end
 function PlayCardAction:notifyListener(listener, game)
-    listener:onRoomChanged(game.gameState)
-    listener:onPlayerChanged(game.gameState)
+    listener:onCardPlayed(self.card)
 end
 
 return {

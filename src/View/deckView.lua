@@ -1,4 +1,3 @@
-Game = require("src.Controller.game")
 Actions = require("src.Controller.playerAction")
 
 local DeckView = { hoovered = false }

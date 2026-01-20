@@ -77,7 +77,7 @@ function GameState:playCardIfPossible(card, useArmor)
         return true
     end
 
-    useArmor = useArmor or true
+    useArmor = useArmor ~= false
     local discards = self.player:takeDamage(card, useArmor)
     self:addToDiscard(discards)
     return true
