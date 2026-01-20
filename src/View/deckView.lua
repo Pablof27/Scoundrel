@@ -39,13 +39,18 @@ function DeckView:render()
     love.graphics.rectangle("fill", self.pos.x + xOffset, self.pos.y - yOffset, squareSize, squareSize * 0.85, 4, 4)
     love.graphics.setColor(0.9, 0.9, 0.9, 1)
     love.graphics.setFont(Fonts["medium"])
-    if Game.gameState:canSkipRoom()then
+    if Game.gameState:canGoNextRoom() then
+        love.graphics.printf("Next", self.pos.x + xOffset, self.pos.y - yOffset + 3, squareSize, "center")
+        love.graphics.printf("Room", self.pos.x + xOffset, self.pos.y - yOffset + 23, squareSize, "center")
+        return
+    end
+    if Game.gameState:canSkipRoom() then
         love.graphics.printf("Skip", self.pos.x + xOffset, self.pos.y - yOffset + 3, squareSize, "center")
         love.graphics.printf("Room", self.pos.x + xOffset, self.pos.y - yOffset + 23, squareSize, "center")
-    else
-        love.graphics.printf("No", self.pos.x + xOffset, self.pos.y - yOffset + 3, squareSize, "center")
-        love.graphics.printf("Skip", self.pos.x + xOffset, self.pos.y - yOffset + 23, squareSize, "center")
+        return
     end
+    love.graphics.printf("No", self.pos.x + xOffset, self.pos.y - yOffset + 3, squareSize, "center")
+    love.graphics.printf("Skip", self.pos.x + xOffset, self.pos.y - yOffset + 23, squareSize, "center")
 
 end
 
@@ -53,10 +58,14 @@ function DeckView:onClick(mouseX, mouseY)
     if not self:isInside(mouseX, mouseY) then
         return false
     end
-    if not Game.gameState:canSkipRoom() then
+    if Game.gameState:canGoNextRoom() then
+        Game:perform(Actions.NextRoomAction:new())
         return true
     end
-    Game:perform(Actions.SkipRoomAction)
+    if Game.gameState:canSkipRoom() then
+        Game:perform(Actions.SkipRoomAction:new())
+        return true
+    end
     return true
 end
 

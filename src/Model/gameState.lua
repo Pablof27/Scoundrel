@@ -45,6 +45,10 @@ function GameState:nextRoomIfPossible()
     return true
 end
 
+function GameState:canGoNextRoom()
+    return #self.room.cards == 1
+end
+
 function GameState:goToPreviousStateIfPossible()
     if self.prevState == nil then
         self.errorMsg = "No previous state to go back to"

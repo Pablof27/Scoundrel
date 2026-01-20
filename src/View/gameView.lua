@@ -123,6 +123,10 @@ function GameView.renderLifes(lifes)
     love.graphics.draw(Textures["ui_assets"], Frames["ui_assets"][5], x, y)
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setFont(Fonts["medium"])
+    if lifes < 10 then
+        love.graphics.print("0" .. tostring(lifes), x + 11, y + 8)
+        return
+    end
     love.graphics.print(tostring(lifes), x + 11, y + 8)
 end
 

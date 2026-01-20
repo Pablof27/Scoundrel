@@ -14,7 +14,6 @@ function Room:replenishRoom(newCards)
         error("Replenish room must receive exactly " .. (self.n - #newCards) .. " cards")
     end
 
-    self.cards = {}
     for _, card in ipairs(newCards) do
         table.insert(self.cards, card)
     end

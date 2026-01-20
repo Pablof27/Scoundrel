@@ -30,6 +30,7 @@ function NextRoomAction:execute(gameState)
     return gameState:nextRoomIfPossible()
 end
 function NextRoomAction:notifyListener(listener, game)
+    listener:onRoomChanged(game.gameState)
 end
 
 local PlayCardAction = setmetatable({
