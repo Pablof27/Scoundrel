@@ -34,7 +34,7 @@ function Player:addWeapon(card)
 end
 
 function Player:takeDamage(card, useArmor)
-    if not useArmor or not self:hasArmor() then
+    if not useArmor or not self:canUseArmor(card) then
         self.lifes = self.lifes - card.value
         return card
     end
@@ -46,6 +46,16 @@ end
 
 function Player:hasArmor()
     return self.armor ~= nil and self.armor.card ~= nil
+end
+
+function Player:canUseArmor(card)
+    if not self:hasArmor() then
+        return false
+    end
+    if #self.armor.defendedCards == 0 then
+        return true
+    end
+    return self.armor.defendedCards[#self.armor.defendedCards].value > card.value
 end
 
 return Player

@@ -53,7 +53,7 @@ function CardView:onSelected()
     for _, button in ipairs(self.actionButtons) do
         button.visible = true
     end
-    if #self.actionButtons > 1 and not Game.gameState.player:hasArmor() then
+    if #self.actionButtons > 1 and not Game.gameState.player:canUseArmor(self.card) then
         self.actionButtons[2].visible = false
     end
 end
