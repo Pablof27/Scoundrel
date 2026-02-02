@@ -10,10 +10,6 @@ function Room:new(cards)
 end
 
 function Room:replenishRoom(newCards)
-    if #newCards + 1 ~= self.n then
-        error("Replenish room must receive exactly " .. (self.n - #newCards) .. " cards")
-    end
-
     for _, card in ipairs(newCards) do
         table.insert(self.cards, card)
     end

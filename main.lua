@@ -1,7 +1,9 @@
 
 _ = require("src.dependencies")
 Game = require("src.Controller.game")
-local GameView = require("src.View.gameView")
+StateStack = require("src.Controller.stateStack")
+
+local GameView = require("src.View.states.gameView")
 
 local function setupShaders()
     Shaders["background"]:send("colour_1", {HexToRgb(BACKGROUND_COLOR1)})
@@ -59,25 +61,27 @@ function love.load()
     })
 
     GameView:init(Game.gameState)
+    StateStack:push(GameView)
 end
 
 function love.update(dt)
     Shaders["background"]:send("time", love.timer.getTime())
     Shaders["background"]:send("spin_time", 0)
     Shaders["CRT"]:send("time", love.timer.getTime())
+    Timer.update(dt)
 
-    GameView:update(dt)
+    StateStack:update(dt)
 end
 
 function love.mousepressed(x, y, button)
     local mouseX, mouseY = push:toGame(x, y)
-    GameView:onMouseClick(mouseX, mouseY)
+    StateStack:onMouseClick(mouseX, mouseY)
 end
 
 function love.draw()
     push:apply("start")
 
-    GameView:render()
+    StateStack:render()
 
     DisplayFPS()
 

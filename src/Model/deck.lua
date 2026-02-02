@@ -34,7 +34,7 @@ function Deck:drawCards(n)
     local drawnCards = {}
     for i = 1, n do
         if #self.cards == 0 then
-            error("No more cards in the deck")
+            break
         end
         table.insert(drawnCards, table.remove(self.cards, 1))
     end

@@ -54,6 +54,9 @@ function GameView:onMouseClick(mouseX, mouseY)
     if self.deckView:onClick(mouseX, mouseY) then
         return
     end
+    if #self.state.room.cards == 1 then
+        return
+    end
     if self.selectedCardIdx ~= -1 and
        self.roomCardViews[self.selectedCardIdx]:onClickButton(mouseX, mouseY) then
         return

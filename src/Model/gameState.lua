@@ -2,6 +2,9 @@ local Player = require("src.Model.player")
 local deck = require("src.Model.deck")
 local Room = require("src.Model.room")
 
+local EndGameView = require("src.View.states.endGameView")
+local GameView = require("src.View.states.gameView")
+
 local GameState = {}
 
 CARDS_PER_ROOM = 4
@@ -103,6 +106,33 @@ end
 function GameState:addToDiscard(cards)
     for _, card in ipairs(cards) do
         table.insert(self.discardPile, card)
+    end
+end
+
+function GameState:checkEndGame()
+    if self.player.lifes <= 0 then
+        StateStack:pop()
+        StateStack:push(EndGameView:new(
+            false,
+            function ()
+                StateStack:pop()
+                Game:start(GameView)
+                GameView:init(Game.gameState)
+                StateStack:push(GameView)
+            end
+        ))
+        return
+    end
+    if self.drawPile:isEmpty() and not self.room:isRoomComplete() then
+        StateStack:push(EndGameView:new(
+            true,
+            function ()
+                Game:start(GameView)
+                GameView:init(Game.gameState)
+                StateStack:pop(GameView)
+            end
+        ))
+        return
     end
 end
 
