@@ -1,6 +1,8 @@
 
 local CardView = require("src.View.cardView")
 local DeckView = require("src.View.deckView")
+local Button = require("src.View.buttonView")
+local Actions = require("src.Controller.playerAction")
 
 local GameView = {}
 
@@ -12,15 +14,18 @@ function GameView:init(game)
     self.state = game
     self.lifes = game.player.lifes
     GameView:initPlayArea(0, 16, WIDTH, HEIGHT - 16, game.room, game.player)
+    self:initUndoButton()
 end
 
 function GameView:onRoomChanged(game)
+    self.state = game
     self.selectedCardIdx = -1
     local x, y, width, height = 0, 16, WIDTH, HEIGHT - 16
     GameView:initRoomCardViews(game.room, { x = x + width / 2, y = y + height / 2 - 64 })
 end
 
 function GameView:onPlayerChanged(game)
+    self.state = game
     self.lifes = game.player.lifes
     self.selectedCardIdx = -1
     local x, y, width, height = 0, 16, WIDTH, HEIGHT - 16
@@ -48,9 +53,14 @@ function GameView:update(dt)
         cardView:update(dt)
     end
     self.deckView:update(dt)
+    self.undoButton:update(dt)
+    self:updateUndoButton()
 end
 
 function GameView:onMouseClick(mouseX, mouseY)
+    if self.undoButton:onMouseClick(mouseX, mouseY) then
+        return
+    end
     if self.deckView:onClick(mouseX, mouseY) then
         return
     end
@@ -138,6 +148,7 @@ function GameView:renderPlayArea(x, y, width, height)
     self:renderRoomCards()
     self:renderPlayerArea({ x = center.x, y = center.y + 64 })
     self.deckView:render()
+    self.undoButton:render()
 end
 
 function GameView:renderRoomCards()
@@ -158,6 +169,25 @@ function GameView:renderPlayerArea(center)
     for _, cardView in ipairs(self.playerCards) do
         cardView:render()
     end
+end
+
+function GameView:initUndoButton()
+    self.undoButton = Button:new({
+        x = 16,
+        y = 16,
+        width = 60,
+        height = 30,
+        text = "Undo",
+        color = {0.4, 0.4, 0.5, 0.9},
+        disabled = not self.state.canUndo,
+        onClick = function()
+            Game:perform(Actions.UndoAction:new())
+        end
+    })
+end
+
+function GameView:updateUndoButton()
+    self.undoButton.disabled = not self.state.canUndo
 end
 
 return GameView

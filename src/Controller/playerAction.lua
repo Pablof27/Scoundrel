@@ -2,19 +2,23 @@ local PlayerAction = {}
 PlayerAction.__index = PlayerAction
 
 function PlayerAction:new()
+    self.isUndo = false
     return self
 end
-function PlayerAction.shouldChangePrev()
-    return true
-end
+
 
 local UndoAction = setmetatable({
-    shouldChangePrev = function() return false end
+    new = function (self)
+        self.isUndo = true
+        return self
+    end
 }, PlayerAction)
 function UndoAction:execute(gameState)
     return gameState:goToPreviousStateIfPossible()
 end
 function UndoAction:notifyListener(listener, game)
+    listener:onRoomChanged(game.gameState)
+    listener:onPlayerChanged(game.gameState)
 end
 
 local SkipRoomAction = setmetatable({}, PlayerAction)

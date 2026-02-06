@@ -19,7 +19,7 @@ function StateStack:pop()
     if #self.stack == 0 then
         return nil
     end
-    return table.remove(self.stack, #self.stack)
+    return table.remove(self.stack)
 end
 
 function StateStack:render()

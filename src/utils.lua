@@ -7,7 +7,7 @@ function DeepCopy(original)
         for key, value in pairs(original) do
             copy[DeepCopy(key)] = DeepCopy(value)
         end
-        setmetatable(copy, DeepCopy(getmetatable(original)))
+        setmetatable(copy, getmetatable(original))
     else
         copy = original
     end

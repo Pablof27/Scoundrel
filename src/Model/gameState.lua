@@ -15,7 +15,6 @@ function GameState:start()
     self.room = Room:new(self.drawPile:drawCards(CARDS_PER_ROOM))
     self.player = Player:new()
     self.skippedLast = false
-    self.prevState = nil
     self.errorMsg = nil
     self.canUndo = false
     return self
@@ -93,10 +92,6 @@ end
 function GameState:nextState(playerAction)
     self.errorMsg = nil
 
-    if not playerAction.shouldChangePrev then
-        self.prevState = DeepCopy(self)
-    end
-
     if not playerAction:execute(self) then
         print("Action could not be executed: " .. tostring(self.errorMsg))
     end
@@ -123,6 +118,7 @@ function GameState:checkEndGame()
         ))
         return
     end
+    
     if self.drawPile:isEmpty() and not self.room:isRoomComplete() then
         StateStack:push(EndGameView:new(
             true,

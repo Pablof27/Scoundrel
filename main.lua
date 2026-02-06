@@ -4,6 +4,7 @@ Game = require("src.Controller.game")
 StateStack = require("src.Controller.stateStack")
 
 local GameView = require("src.View.states.gameView")
+local Actions = require("src.Controller.playerAction")
 
 local function setupShaders()
     Shaders["background"]:send("colour_1", {HexToRgb(BACKGROUND_COLOR1)})
@@ -92,4 +93,15 @@ function DisplayFPS()
     love.graphics.setFont(Fonts["small"])
     love.graphics.setColor(1, 1, 1, 0.8)
     love.graphics.print('FPS: ' .. tostring(love.timer.getFPS()), 15, 10)
+end
+
+function love.keypressed(key)
+    if key == "escape" then
+        love.event.quit()
+    end
+    if key == "u" then
+        print("Undoing last action")
+        Game:perform(Actions.UndoAction:new())
+    end
+    
 end
