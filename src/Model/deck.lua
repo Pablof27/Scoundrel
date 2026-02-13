@@ -1,29 +1,34 @@
+--[[
+    Deck
+    A shuffled deck of cards. Handles drawing and re-inserting cards.
+]]
 
-local utils = require("src.utils")
 local Card = require("src.Model.card")
 
 local Deck = {}
+Deck.__index = Deck
 
 local suits = {
-    heart = 0,
-    club = 1,
+    heart   = 0,
+    club    = 1,
     diamond = 2,
-    spade = 3
+    spade   = 3
 }
 
 function Deck:new()
-    self.cards = {}
+    local o = setmetatable({}, self)
+    o.cards = {}
     for i = 0, 3 do
         for value = 2, 14 do
             if (i == suits.heart or i == suits.diamond) and value > 10 then
                 goto continue
             end
-            table.insert(self.cards, Card:new(i, value))
+            table.insert(o.cards, Card:new(i, value))
             ::continue::
         end
     end
-    self:shuffle()
-    return self
+    o:shuffle()
+    return o
 end
 
 function Deck:shuffle()
@@ -53,10 +58,6 @@ end
 
 function Deck:remainingCards()
     return #self.cards
-end
-
-function Deck:render(x, y)
-    
 end
 
 return Deck

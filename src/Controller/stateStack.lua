@@ -1,14 +1,16 @@
-local gameView = require("src.View.states.gameView")
+--[[
+    StateStack
+    Manages a stack of view states (screens).
+    The topmost state receives update and input events.
+]]
 
 local StateStack = {}
+StateStack.__index = StateStack
 
 function StateStack:new()
-    local obj = {
-        stack = {},
-    }
-    setmetatable(obj, self)
-    self.__index = self
-    return obj
+    local o = setmetatable({}, self)
+    o.stack = {}
+    return o
 end
 
 function StateStack:push(view)
@@ -42,4 +44,4 @@ function StateStack:onMouseClick(mouseX, mouseY)
     self.stack[#self.stack]:onMouseClick(mouseX, mouseY)
 end
 
-return StateStack:new()
+return StateStack

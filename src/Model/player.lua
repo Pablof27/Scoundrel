@@ -1,12 +1,18 @@
+--[[
+    Player
+    Manages health, armor, and damage calculations.
+]]
 
 local Player = {}
+Player.__index = Player
 
-MAX_LIFES = 20
+local MAX_LIFES = Constants.MAX_LIFES
 
 function Player:new()
-    self.lifes = MAX_LIFES
-    self.armor = nil
-    return self
+    local o = setmetatable({}, self)
+    o.lifes = MAX_LIFES
+    o.armor = nil
+    return o
 end
 
 function Player:heal(amount)
@@ -15,7 +21,6 @@ function Player:heal(amount)
 end
 
 function Player:addWeapon(card)
-
     if self.armor == nil then
         self.armor = {card = card, defendedCards = {}}
         return {}

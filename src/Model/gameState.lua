@@ -1,23 +1,28 @@
-local Player = require("src.Model.player")
-local deck = require("src.Model.deck")
-local Room = require("src.Model.room")
+--[[
+    GameState
+    Pure game-state model. Contains no references to Views or UI.
+    End-game detection is exposed as query methods; the Controller decides what to do.
+]]
 
-local EndGameView = require("src.View.states.endGameView")
-local GameView = require("src.View.states.gameView")
+local Player    = require("src.Model.player")
+local Deck      = require("src.Model.deck")
+local Room      = require("src.Model.room")
 
 local GameState = {}
+GameState.__index = GameState
 
-CARDS_PER_ROOM = 4
+local CARDS_PER_ROOM = Constants.CARDS_PER_ROOM
 
-function GameState:start()
-    self.discardPile = {}
-    self.drawPile = deck:new()
-    self.room = Room:new(self.drawPile:drawCards(CARDS_PER_ROOM))
-    self.player = Player:new()
-    self.skippedLast = false
-    self.errorMsg = nil
-    self.canUndo = false
-    return self
+function GameState:new()
+    local o = setmetatable({}, self)
+    o.discardPile = {}
+    o.drawPile    = Deck:new()
+    o.room        = Room:new(o.drawPile:drawCards(CARDS_PER_ROOM))
+    o.player      = Player:new()
+    o.skippedLast = false
+    o.errorMsg    = nil
+    o.canUndo     = false
+    return o
 end
 
 function GameState:skipRoomIfPossible()
@@ -28,7 +33,7 @@ function GameState:skipRoomIfPossible()
     self.skippedLast = true
     self.canUndo = false
     self.drawPile:addToBottom(self.room:shuffledRoom())
-    self.room:new(self.drawPile:drawCards(CARDS_PER_ROOM))
+    self.room:replaceCards(self.drawPile:drawCards(CARDS_PER_ROOM))
     return true
 end
 
@@ -49,19 +54,6 @@ end
 
 function GameState:canGoNextRoom()
     return #self.room.cards == 1
-end
-
-function GameState:goToPreviousStateIfPossible()
-    if self.prevState == nil then
-        self.errorMsg = "No previous state to go back to"
-        return false
-    end
-    if not self.canUndo then
-        self.errorMsg = "Cannot undo last action"
-        return false
-    end
-    self = self.prevState
-    return true
 end
 
 function GameState:playCardIfPossible(card, useArmor)
@@ -91,11 +83,9 @@ end
 
 function GameState:nextState(playerAction)
     self.errorMsg = nil
-
     if not playerAction:execute(self) then
         print("Action could not be executed: " .. tostring(self.errorMsg))
     end
-
 end
 
 function GameState:addToDiscard(cards)
@@ -104,32 +94,13 @@ function GameState:addToDiscard(cards)
     end
 end
 
-function GameState:checkEndGame()
-    if self.player.lifes <= 0 then
-        StateStack:pop()
-        StateStack:push(EndGameView:new(
-            false,
-            function ()
-                StateStack:pop()
-                Game:start(GameView)
-                GameView:init(Game.gameState)
-                StateStack:push(GameView)
-            end
-        ))
-        return
-    end
-    
-    if self.drawPile:isEmpty() and not self.room:isRoomComplete() then
-        StateStack:push(EndGameView:new(
-            true,
-            function ()
-                Game:start(GameView)
-                GameView:init(Game.gameState)
-                StateStack:pop(GameView)
-            end
-        ))
-        return
-    end
+-- Query methods — the Controller calls these to decide end-game transitions
+function GameState:isPlayerDead()
+    return self.player.lifes <= 0
+end
+
+function GameState:isVictory()
+    return self.drawPile:isEmpty() and not self.room:isRoomComplete()
 end
 
 return GameState

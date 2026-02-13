@@ -1,22 +1,34 @@
+--[[
+    CardView
+    Renders a single card and its action buttons.
+    Receives assets, eventBus, mouseProvider, and a gameStateQuery function.
+    No global dependencies.
+]]
+
 local Button = require("src.View.buttonView")
+local Actions = require("src.Controller.playerAction")
 
 local CardView = {}
+CardView.__index = CardView
 
-function CardView:new(card, x, y, interactive, visible)
-    local o = {}
-    setmetatable(o, self)
-    self.__index = self
+function CardView:new(card, x, y, context, interactive, visible)
+    local o = setmetatable({}, self)
 
-    o.card = card
-    o.pos = { x = x, y = y }
-    o.targetPos = { x = x, y = y }
-    o.anchor = { x = x, y = y}
-    o.size = GetQuadDimensions(Frames["cardFrames"][1])
-    o.quad = Frames["pips"][card.position]
-    o.hoovered = false
+    o.card       = card
+    o.pos        = { x = x, y = y }
+    o.targetPos  = { x = x, y = y }
+    o.anchor     = { x = x, y = y }
+    o.assets     = context.assets
+    o.eventBus   = context.eventBus
+    o.mouseProvider   = context.mouseProvider
+    o.gameStateQuery  = context.gameStateQuery
+    o.size       = o.assets:getCardSize()
+    o.quad       = o.assets.frames.pips[card.position]
+    o.hoovered   = false
     o.interactive = interactive ~= false
-    o.visible = visible ~= false
-    o.actionButtons = self.getActionButtons(o)
+    o.visible    = visible ~= false
+    o.actionButtons = o:createActionButtons()
+
     return o
 end
 
@@ -34,14 +46,14 @@ function CardView:render()
         xOffset = -(scale - 1) * self.size.width / 2
     end
 
-    for _, buttons in ipairs(self.actionButtons) do
-        buttons:render()
+    for _, button in ipairs(self.actionButtons) do
+        button:render()
     end
 
     local luminosity = 0.9
     love.graphics.setColor(luminosity, luminosity, luminosity, 1)
-    love.graphics.draw(Textures["cardFrames"], Frames["cardFrames"][2], self.pos.x + xOffset, self.pos.y + yOffset, 0, scale)
-    love.graphics.draw(Textures["pips"], self.quad, self.pos.x + xOffset, self.pos.y + yOffset, 0, scale)
+    love.graphics.draw(self.assets.textures.cardFrames, self.assets.frames.cardFrames[2], self.pos.x + xOffset, self.pos.y + yOffset, 0, scale)
+    love.graphics.draw(self.assets.textures.pips, self.quad, self.pos.x + xOffset, self.pos.y + yOffset, 0, scale)
 end
 
 function CardView:onSelected()
@@ -57,10 +69,12 @@ function CardView:onSelected()
     if #self.actionButtons < 2 then
         return
     end
-    if Game.gameState.player:hasArmor() and not Game.gameState.player:canUseArmor(self.card) then
+
+    local gameState = self.gameStateQuery()
+    if gameState.player:hasArmor() and not gameState.player:canUseArmor(self.card) then
         self.actionButtons[1].disabled = true
     end
-    if not Game.gameState.player:hasArmor() then
+    if not gameState.player:hasArmor() then
         self.actionButtons[2].visible = false
     end
 end
@@ -97,7 +111,7 @@ function CardView:update(dt)
         button:update(dt)
     end
 
-    local mouseX, mouseY = push:toGame(love.mouse.getPosition())
+    local mouseX, mouseY = self.mouseProvider()
     self.hoovered = self:isInside(mouseX, mouseY)
 end
 
@@ -106,53 +120,57 @@ function CardView:isInside(x, y)
            y >= self.pos.y and y <= self.pos.y + self.size.height
 end
 
-function CardView.getActionButtons(o)
-    local card = o.card
+function CardView:createActionButtons()
+    local card = self.card
+    local eventBus = self.eventBus
+    local assets = self.assets
+    local mouseProvider = self.mouseProvider
     local buttons = {}
     local bWidth = 50
+
     if card:isDiamond() or card:isHeart() then
         buttons = {
             Button:new({
-                x = o.pos.x + o.size.width / 2 - bWidth / 2,
-                y = o.pos.y + 36,
+                x = self.pos.x + self.size.width / 2 - bWidth / 2,
+                y = self.pos.y + 36,
                 width = bWidth,
                 height = 24,
                 text = "Play",
                 color = {HexToRgb("FFE97F7F")},
-                onClick = function ()
-                   Game:perform(Actions.PlayCardAction:new(card))
+                onClick = function()
+                    eventBus:publish("action", Actions.PlayCardAction:new(card))
                 end,
                 visible = false
-            })
+            }, assets, mouseProvider)
         }
     end
 
     if card:isSpade() or card:isClub() then
         buttons = {
-            Button:new {
-                x = o.pos.x + o.size.width / 2 - bWidth / 2,
-                y = o.pos.y + 36,
+            Button:new({
+                x = self.pos.x + self.size.width / 2 - bWidth / 2,
+                y = self.pos.y + 36,
                 width = bWidth,
                 height = 24,
                 text = "Fight",
                 color = {HexToRgb("FFE97F7F")},
                 onClick = function()
-                    Game:perform(Actions.PlayCardAction:new(card, true))
+                    eventBus:publish("action", Actions.PlayCardAction:new(card, true))
                 end,
                 visible = false
-            },
-            Button:new {
-                x = o.pos.x + o.size.width / 2 - (bWidth + 20) / 2,
-                y = o.pos.y + 65,
+            }, assets, mouseProvider),
+            Button:new({
+                x = self.pos.x + self.size.width / 2 - (bWidth + 20) / 2,
+                y = self.pos.y + 65,
                 width = bWidth + 20,
                 height = 24,
                 text = "No armor",
                 color = {HexToRgb("FF6F9BED")},
                 onClick = function()
-                    Game:perform(Actions.PlayCardAction:new(card, false))
+                    eventBus:publish("action", Actions.PlayCardAction:new(card, false))
                 end,
                 visible = false
-            }
+            }, assets, mouseProvider)
         }
     end
     return buttons

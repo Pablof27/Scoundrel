@@ -1,11 +1,31 @@
+--[[
+    Game (Controller)
+    Orchestrates game actions and undo history.
+    Subscribes to events from the EventBus and publishes state-change events.
+    Owns end-game detection (moved out of GameState).
+]]
 
 local GameState = require("src.Model.gameState")
 
 local Game = {}
+Game.__index = Game
 
-function Game:start(gameView)
-    self.gameState = GameState:start()
-    self.listener = gameView
+function Game:new(eventBus)
+    local o = setmetatable({}, self)
+    o.gameState = nil
+    o.history   = {}
+    o.eventBus  = eventBus
+
+    -- Subscribe to actions from the View layer
+    eventBus:subscribe("action", function(action)
+        o:perform(action)
+    end)
+
+    return o
+end
+
+function Game:start()
+    self.gameState = GameState:new()
     self.history = {}
 end
 
@@ -21,13 +41,34 @@ function Game:perform(action)
             return
         end
         self.gameState = previousState
-        action:notifyListener(self.listener, self)
+        self.eventBus:publish("roomChanged", self.gameState)
+        self.eventBus:publish("playerChanged", self.gameState)
         return
     end
+
     table.insert(self.history, DeepCopy(self.gameState))
     self.gameState:nextState(action)
-    action:notifyListener(self.listener, self)
-    self.gameState:checkEndGame()
+
+    -- Notify views based on action type
+    if action.eventType == "roomChanged" then
+        self.eventBus:publish("roomChanged", self.gameState)
+    elseif action.eventType == "cardPlayed" then
+        self.eventBus:publish("cardPlayed", action.card)
+    end
+
+    -- End-game detection (previously in GameState)
+    self:checkEndGame()
+end
+
+function Game:checkEndGame()
+    if self.gameState:isPlayerDead() then
+        self.eventBus:publish("endGame", false)
+        return
+    end
+    if self.gameState:isVictory() then
+        self.eventBus:publish("endGame", true)
+        return
+    end
 end
 
 return Game

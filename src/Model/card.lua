@@ -1,17 +1,15 @@
+--[[
+    Card
+    Represents a single playing card with a suit and value.
+]]
 
 local Card = {}
-
-local values = {
-   "2", "3", "4", "5", "6", "7", "8", "9", "T",
-   "J", "Q", "K", "A"
-}
+Card.__index = Card
 
 function Card:new(suit, value)
-    local o = {}
-    setmetatable(o, self)
-    self.__index = self
-    o.value = value
-    o.suit = suit
+    local o = setmetatable({}, self)
+    o.value    = value
+    o.suit     = suit
     o.position = value - 1 + 13 * suit
     return o
 end

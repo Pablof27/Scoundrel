@@ -1,12 +1,21 @@
+--[[
+    Room
+    Represents the current room of cards the player is interacting with.
+]]
 
-
-local _ = require("src.utils")
 local Room = {}
+Room.__index = Room
 
 function Room:new(cards)
+    local o = setmetatable({}, self)
+    o.cards = cards
+    o.n = #cards
+    return o
+end
+
+function Room:replaceCards(cards)
     self.cards = cards
     self.n = #cards
-    return self
 end
 
 function Room:replenishRoom(newCards)

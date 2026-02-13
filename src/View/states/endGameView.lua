@@ -1,36 +1,46 @@
+--[[
+    EndGameView
+    Win/lose screen overlay. Receives assets via constructor.
+    No global dependencies.
+]]
 
-EndGameView = {}
+local Timer = require("lib.timer")
 
-function EndGameView:new(didWin, onClick)
-   self.didWin = didWin
-   self.onClick = onClick
-   self.titleY = -100
-   self.subtitleY = HEIGHT + 100
-   Timer.tween(0.25, {
-         [self] = { titleY = HEIGHT / 2 - 32, subtitleY = HEIGHT / 2 + 32 }
-   })
-   return self
+local EndGameView = {}
+EndGameView.__index = EndGameView
+
+function EndGameView:new(didWin, onClick, assets)
+    local o = setmetatable({}, self)
+    o.didWin   = didWin
+    o.onClick  = onClick
+    o.assets   = assets
+    o.titleY   = -100
+    o.subtitleY = assets.HEIGHT + 100
+    Timer.tween(0.25, {
+        [o] = { titleY = assets.HEIGHT / 2 - 32, subtitleY = assets.HEIGHT / 2 + 32 }
+    })
+    return o
 end
 
 function EndGameView:render()
     love.graphics.clear(0, 0, 0)
 
-    EndGameView.renderBackground()
+    self:renderBackground()
 
-    love.graphics.setFont(Fonts["large"])
+    love.graphics.setFont(self.assets.fonts.large)
     if self.didWin then
-        love.graphics.printf("You Win!", 0, self.titleY, WIDTH, "center")
+        love.graphics.printf("You Win!", 0, self.titleY, self.assets.WIDTH, "center")
     else
-        love.graphics.printf("Game Over", 0, self.titleY, WIDTH, "center")
+        love.graphics.printf("Game Over", 0, self.titleY, self.assets.WIDTH, "center")
     end
 
-    love.graphics.setFont(Fonts["medium"])
-    love.graphics.printf("Click to Restart", 0, self.subtitleY, WIDTH, "center")
+    love.graphics.setFont(self.assets.fonts.medium)
+    love.graphics.printf("Click to Restart", 0, self.subtitleY, self.assets.WIDTH, "center")
 end
 
-function EndGameView.renderBackground()
-    love.graphics.setShader(Shaders["background"])
-    love.graphics.rectangle("fill", 0, 0, WIDTH, HEIGHT)
+function EndGameView:renderBackground()
+    love.graphics.setShader(self.assets.shaders.background)
+    love.graphics.rectangle("fill", 0, 0, self.assets.WIDTH, self.assets.HEIGHT)
     love.graphics.setShader()
 end
 

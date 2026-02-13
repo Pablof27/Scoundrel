@@ -1,3 +1,10 @@
+--[[
+    PlayerAction
+    Defines the different actions a player can perform.
+    Each action knows how to execute itself on a GameState and declares
+    its eventType so the Controller can publish the right event.
+]]
+
 local PlayerAction = {}
 PlayerAction.__index = PlayerAction
 
@@ -6,53 +13,70 @@ function PlayerAction:new()
     return self
 end
 
+-- UndoAction --
+local UndoAction = setmetatable({}, PlayerAction)
+UndoAction.__index = UndoAction
 
-local UndoAction = setmetatable({
-    new = function (self)
-        self.isUndo = true
-        return self
-    end
-}, PlayerAction)
+function UndoAction:new()
+    local o = setmetatable({}, self)
+    o.isUndo = true
+    o.eventType = nil  -- undo publishes its own events in Game:perform
+    return o
+end
+
 function UndoAction:execute(gameState)
-    return gameState:goToPreviousStateIfPossible()
-end
-function UndoAction:notifyListener(listener, game)
-    listener:onRoomChanged(game.gameState)
-    listener:onPlayerChanged(game.gameState)
+    return true  -- undo is handled entirely by the Game controller
 end
 
+-- SkipRoomAction --
 local SkipRoomAction = setmetatable({}, PlayerAction)
+SkipRoomAction.__index = SkipRoomAction
+
+function SkipRoomAction:new()
+    local o = setmetatable({}, self)
+    o.isUndo = false
+    o.eventType = "roomChanged"
+    return o
+end
+
 function SkipRoomAction:execute(gameState)
     return gameState:skipRoomIfPossible()
 end
-function SkipRoomAction:notifyListener(listener, game)
-    listener:onRoomChanged(game.gameState)
+
+-- NextRoomAction --
+local NextRoomAction = setmetatable({}, PlayerAction)
+NextRoomAction.__index = NextRoomAction
+
+function NextRoomAction:new()
+    local o = setmetatable({}, self)
+    o.isUndo = false
+    o.eventType = "roomChanged"
+    return o
 end
 
-local NextRoomAction = setmetatable({}, PlayerAction)
 function NextRoomAction:execute(gameState)
     return gameState:nextRoomIfPossible()
 end
-function NextRoomAction:notifyListener(listener, game)
-    listener:onRoomChanged(game.gameState)
+
+-- PlayCardAction --
+local PlayCardAction = setmetatable({}, PlayerAction)
+PlayCardAction.__index = PlayCardAction
+
+function PlayCardAction:new(card, useArmor)
+    local o = setmetatable({}, self)
+    o.isUndo = false
+    o.card = card
+    o.useArmor = useArmor
+    o.eventType = "cardPlayed"
+    return o
 end
 
-local PlayCardAction = setmetatable({
-    new = function (self, card, useArmor)
-        self.card = card
-        self.useArmor = useArmor
-        return self
-    end
-}, PlayerAction)
 function PlayCardAction:execute(gameState)
     return gameState:playCardIfPossible(self.card, self.useArmor)
 end
-function PlayCardAction:notifyListener(listener, game)
-    listener:onCardPlayed(self.card)
-end
 
 return {
-    UndoAction = UndoAction,
+    UndoAction     = UndoAction,
     SkipRoomAction = SkipRoomAction,
     NextRoomAction = NextRoomAction,
     PlayCardAction = PlayCardAction
