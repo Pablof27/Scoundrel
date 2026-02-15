@@ -16,7 +16,6 @@ function Game:new(eventBus)
     o.history   = {}
     o.eventBus  = eventBus
 
-    -- Subscribe to actions from the View layer
     eventBus:subscribe("action", function(action)
         o:perform(action)
     end)
@@ -49,14 +48,12 @@ function Game:perform(action)
     table.insert(self.history, DeepCopy(self.gameState))
     self.gameState:nextState(action)
 
-    -- Notify views based on action type
     if action.eventType == "roomChanged" then
         self.eventBus:publish("roomChanged", self.gameState)
     elseif action.eventType == "cardPlayed" then
         self.eventBus:publish("cardPlayed", action.card)
     end
 
-    -- End-game detection (previously in GameState)
     self:checkEndGame()
 end
 

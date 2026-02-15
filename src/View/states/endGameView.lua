@@ -24,6 +24,7 @@ end
 
 function EndGameView:render()
     love.graphics.clear(0, 0, 0)
+    love.graphics.setColor(1, 1, 1, 1)
 
     self:renderBackground()
 

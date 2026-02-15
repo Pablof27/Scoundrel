@@ -29,6 +29,9 @@ function GameView:new()
     o.lifes           = 0
     o.deckView        = nil
     o.undoButton      = nil
+    o.roomChangedHandler   = nil
+    o.playerChangedHandler = nil
+    o.cardPlayedHandler    = nil
     return o
 end
 
@@ -45,16 +48,23 @@ function GameView:init(gameState, assets, eventBus, mouseProvider, gameStateQuer
     self:initPlayArea(0, 16, WIDTH, HEIGHT - 16, gameState.room, gameState.player)
     self:initUndoButton()
 
-    -- Subscribe to game events
-    eventBus:subscribe("roomChanged", function(gs)
+    self.roomChangedHandler = self.eventBus:subscribe("roomChanged", function(gs)
         self:onRoomChanged(gs)
     end)
-    eventBus:subscribe("playerChanged", function(gs)
+    self.playerChangedHandler = self.eventBus:subscribe("playerChanged", function(gs)
         self:onPlayerChanged(gs)
     end)
-    eventBus:subscribe("cardPlayed", function(card)
+    self.cardPlayedHandler = self.eventBus:subscribe("cardPlayed", function(card)
         self:onCardPlayed(card)
     end)
+end
+
+function GameView:destroy()
+    if self.eventBus then
+        self.eventBus:unsubscribe("roomChanged", self.roomChangedHandler)
+        self.eventBus:unsubscribe("playerChanged", self.playerChangedHandler)
+        self.eventBus:unsubscribe("cardPlayed", self.cardPlayedHandler)
+    end
 end
 
 function GameView:onRoomChanged(gameState)
@@ -232,8 +242,8 @@ end
 
 function GameView:initUndoButton()
     self.undoButton = Button:new({
-        x = 16,
-        y = 16,
+        x = 100,
+        y = self.assets.HEIGHT - 120,
         width = 60,
         height = 30,
         text = "Undo",

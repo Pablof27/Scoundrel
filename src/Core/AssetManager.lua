@@ -29,12 +29,11 @@ function AssetManager:new()
 end
 
 function AssetManager:load()
-    -- Textures
+
     self.textures.pips       = love.graphics.newImage("resources/8BitDeck_small.png")
     self.textures.cardFrames = love.graphics.newImage("resources/Enhancers.png")
     self.textures.uiAssets   = love.graphics.newImage("resources/ui_assets.png")
 
-    -- Quads / Frames
     self.frames.pips = GenerateQuads(
         self.textures.pips,
         self.textures.pips:getWidth() / 13,
@@ -51,12 +50,10 @@ function AssetManager:load()
         self.textures.uiAssets:getHeight() / 2
     )
 
-    -- Fonts
     self.fonts.small  = love.graphics.newFont("resources/m6x11plus.ttf", 8)
     self.fonts.medium = love.graphics.newFont("resources/m6x11plus.ttf", 16)
     self.fonts.large  = love.graphics.newFont("resources/m6x11plus.ttf", 32)
 
-    -- Shaders
     self.shaders.background = love.graphics.newShader("shaders/background.fs")
     self.shaders.CRT        = love.graphics.newShader("shaders/CRT.fs")
     self:setupShaders()

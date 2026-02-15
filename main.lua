@@ -4,45 +4,36 @@
     No other module imports from here; all dependencies flow downward.
 ]]
 
--- Utility functions used across the project (table.shuffle, HexToRgb, etc.)
 require("src.Core.utils")
 require("src.Core.constants")
 
--- External libraries
 local push  = require("lib.push")
 local Timer = require("lib.timer")
 
--- Core infrastructure
 local AssetManager = require("src.Core.AssetManager")
 local EventBus     = require("src.Core.EventBus")
 
--- Controller
 local Game       = require("src.Controller.game")
 local StateStack = require("src.Controller.stateStack")
 local Actions    = require("src.Controller.playerAction")
 
--- Views
-local GameView    = require("src.View.states.gameView")
-local EndGameView = require("src.View.states.endGameView")
-
--- Module-level references (local, not global)
+local GameView       = require("src.View.states.gameView")
+local EndGameView    = require("src.View.states.endGameView")
+local TransitionView = require("src.View.states.transitionView")
 local assets
 local eventBus
 local game
 local stateStack
 local gameView
 
--- Provides normalised mouse position; injected into Views so they don't depend on `push`
 local function mouseProvider()
     return push:toGame(love.mouse.getPosition())
 end
 
--- Returns the current game state; injected into Views so they don't depend on `game`
 local function gameStateQuery()
     return game.gameState
 end
 
--- Start (or restart) a full game session
 local function startGame()
     game:start()
 
@@ -53,34 +44,54 @@ local function startGame()
     stateStack:push(gameView)
 end
 
+local function startTransition(onMidpoint, onComplete)
+    stateStack:push(TransitionView:new(onMidpoint, onComplete))
+end
+
+local function restartGame()
+    startTransition(
+        function()
+            if gameView then
+                gameView:destroy()
+            end
+            game:start()
+            gameView = GameView:new()
+            gameView:init(game.gameState, assets, eventBus, mouseProvider, gameStateQuery)
+            stateStack.stack[1] = gameView
+        end,
+        function()
+            stateStack:pop()
+        end
+    )
+end
+
+local function showEndGame(didWin)
+    startTransition(
+        function()
+            -- Pass restartGame as callback to EndGameView
+            stateStack.stack[1] = EndGameView:new(didWin, restartGame, assets)
+        end,
+        function()
+            stateStack:pop()
+        end
+    )
+end
+
 function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")
     love.window.setTitle("Scoundrel")
     math.randomseed(os.time())
 
-    -- 1. Load assets
     assets = AssetManager:new()
     assets:load()
 
-    -- 2. Create the event bus
     eventBus = EventBus:new()
 
-    -- 3. Create the game controller (subscribes to "action" events internally)
     game = Game:new(eventBus)
+    eventBus:subscribe("endGame", showEndGame)
 
-    -- 4. Subscribe to end-game events
-    eventBus:subscribe("endGame", function(didWin)
-        stateStack:pop()
-        stateStack:push(EndGameView:new(didWin, function()
-            stateStack:pop()
-            startGame()
-        end, assets))
-    end)
-
-    -- 5. Start the first game session
     startGame()
 
-    -- 6. Set up the virtual screen
     push:setupScreen(assets.WIDTH, assets.HEIGHT, assets.WIDTH * assets.SCALE, assets.HEIGHT * assets.SCALE, {
         vsync = true,
         fullscreen = false,
