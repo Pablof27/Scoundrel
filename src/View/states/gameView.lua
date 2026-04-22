@@ -7,7 +7,8 @@
 local CardView = require("src.View.cardView")
 local DeckView = require("src.View.deckView")
 local Button   = require("src.View.buttonView")
-local Actions   = require("src.Controller.playerAction")
+local Actions  = require("src.Controller.playerAction")
+local Timer    = require("lib.timer")
 
 local GameView = {}
 GameView.__index = GameView
@@ -27,6 +28,7 @@ function GameView:new()
     o.playerCards     = {}
     o.selectedCardIdx = -1
     o.lifes           = 0
+    o.damageNumbers   = {}
     o.deckView        = nil
     o.undoButton      = nil
     o.roomChangedHandler   = nil
@@ -54,8 +56,8 @@ function GameView:init(gameState, assets, eventBus, mouseProvider, gameStateQuer
     self.playerChangedHandler = self.eventBus:subscribe("playerChanged", function(gs)
         self:onPlayerChanged(gs)
     end)
-    self.cardPlayedHandler = self.eventBus:subscribe("cardPlayed", function(card)
-        self:onCardPlayed(card)
+    self.cardPlayedHandler = self.eventBus:subscribe("cardPlayed", function(card, damage)
+        self:onCardPlayed(card, damage)
     end)
 end
 
@@ -86,14 +88,52 @@ function GameView:onPlayerChanged(gameState)
     self:initPlayerCardViews(gameState.player.armor, { x = x + width / 2, y = y + height / 2 + 64 })
 end
 
-function GameView:onCardPlayed(card)
+function GameView:onCardPlayed(card, delta)
     self.selectedCardIdx = -1
+
+    local targetCardView = nil
     for _, cardView in ipairs(self.roomCardViews) do
         if cardView.card == card then
-            cardView.visible = false
+            targetCardView = cardView
+            break
         end
     end
+
+    -- Update player area immediately (armor, lifes)
     self:onPlayerChanged(self.state)
+
+    if targetCardView and (card:isSpade() or card:isClub()) then
+        -- Enemy card: shake animation + red damage number
+        targetCardView:startShake(0.45, function()
+            targetCardView.visible = false
+        end)
+        local damage = -delta
+        if damage > 0 then
+            self:addFloatingNumber(
+                targetCardView.pos.x + targetCardView.size.width / 2,
+                targetCardView.pos.y + targetCardView.size.height / 4,
+                "-" .. tostring(damage),
+                {1, 0.15, 0.15}
+            )
+        end
+    elseif targetCardView and card:isHeart() then
+        -- Heal card: shake animation + green heal number
+        targetCardView:startShake(0.45, function()
+            targetCardView.visible = false
+        end)
+        if delta > 0 then
+            self:addFloatingNumber(
+                targetCardView.pos.x + targetCardView.size.width / 2,
+                targetCardView.pos.y + targetCardView.size.height / 4,
+                "+" .. tostring(delta),
+                {0.2, 1, 0.3}
+            )
+        end
+    else
+        if targetCardView then
+            targetCardView.visible = false
+        end
+    end
 end
 
 function GameView:render()
@@ -224,10 +264,10 @@ function GameView:renderRoomCards()
     for i, cardView in ipairs(self.roomCardViews) do
         cardView:render(self.selectedCardIdx == i)
     end
-    if self.selectedCardIdx == -1 then
-        return
+    if self.selectedCardIdx ~= -1 then
+        self.roomCardViews[self.selectedCardIdx]:render(true)
     end
-    self.roomCardViews[self.selectedCardIdx]:render(true)
+    self:renderDamageNumbers()
 end
 
 function GameView:renderPlayerArea(center)
@@ -257,6 +297,52 @@ end
 
 function GameView:updateUndoButton()
     self.undoButton.disabled = not self.state.canUndo
+end
+
+function GameView:addFloatingNumber(x, y, text, color)
+    local dn = {
+        x = x, y = y,
+        text = text,
+        color = color,
+        alpha = 1,
+        scale = 2.0,
+    }
+    table.insert(self.damageNumbers, dn)
+
+    local duration = 0.9
+    -- Float upward over full duration
+    Timer.tween(duration, { [dn] = { y = y - 30 } })
+    -- Scale from 2 → 1 quickly in the first quarter
+    Timer.tween(duration * 0.25, { [dn] = { scale = 1.0 } })
+    -- Fade out in the second half, then remove
+    Timer.after(duration * 0.5, function()
+        Timer.tween(duration * 0.5, { [dn] = { alpha = 0 } }):finish(function()
+            for i, d in ipairs(self.damageNumbers) do
+                if d == dn then
+                    table.remove(self.damageNumbers, i)
+                    break
+                end
+            end
+        end)
+    end)
+end
+
+function GameView:renderDamageNumbers()
+    for _, dn in ipairs(self.damageNumbers) do
+        love.graphics.setFont(self.assets.fonts.large)
+        local textWidth = self.assets.fonts.large:getWidth(dn.text)
+        local textHeight = self.assets.fonts.large:getHeight()
+        local ox = textWidth / 2
+        local oy = textHeight / 2
+        -- Shadow
+        love.graphics.setColor(0, 0, 0, dn.alpha * 0.6)
+        love.graphics.print(dn.text, dn.x + 1, dn.y + 1, 0, dn.scale, dn.scale, ox, oy)
+        -- Colored text
+        local c = dn.color
+        love.graphics.setColor(c[1], c[2], c[3], dn.alpha)
+        love.graphics.print(dn.text, dn.x, dn.y, 0, dn.scale, dn.scale, ox, oy)
+        love.graphics.setColor(1, 1, 1, 1)
+    end
 end
 
 return GameView

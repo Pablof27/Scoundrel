@@ -46,12 +46,14 @@ function Game:perform(action)
     end
 
     table.insert(self.history, DeepCopy(self.gameState))
+    local lifesBefore = self.gameState.player.lifes
     self.gameState:nextState(action)
 
     if action.eventType == "roomChanged" then
         self.eventBus:publish("roomChanged", self.gameState)
     elseif action.eventType == "cardPlayed" then
-        self.eventBus:publish("cardPlayed", action.card)
+        local delta = self.gameState.player.lifes - lifesBefore  -- positive = healed, negative = damaged
+        self.eventBus:publish("cardPlayed", action.card, delta)
     end
 
     self:checkEndGame()

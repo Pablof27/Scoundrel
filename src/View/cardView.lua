@@ -7,6 +7,7 @@
 
 local Button = require("src.View.buttonView")
 local Actions = require("src.Controller.playerAction")
+local Timer  = require("lib.timer")
 
 local CardView = {}
 CardView.__index = CardView
@@ -16,7 +17,6 @@ function CardView:new(card, x, y, context, interactive, visible)
 
     o.card       = card
     o.pos        = { x = x, y = y }
-    o.targetPos  = { x = x, y = y }
     o.anchor     = { x = x, y = y }
     o.assets     = context.assets
     o.eventBus   = context.eventBus
@@ -27,6 +27,10 @@ function CardView:new(card, x, y, context, interactive, visible)
     o.hoovered   = false
     o.interactive = interactive ~= false
     o.visible    = visible ~= false
+    o.shaking        = false
+    o.shakeTimer     = 0
+    o.shakeDuration  = 1
+    o.shakeIntensity = 3
     o.actionButtons = o:createActionButtons()
 
     return o
@@ -46,22 +50,29 @@ function CardView:render()
         xOffset = -(scale - 1) * self.size.width / 2
     end
 
+    -- Shake offset
+    local shakeX = 0
+    if self.shaking then
+        local progress = self.shakeTimer / self.shakeDuration
+        shakeX = math.sin(self.shakeTimer * 40) * self.shakeIntensity * (1 - progress)
+    end
+
     for _, button in ipairs(self.actionButtons) do
         button:render()
     end
 
     local luminosity = 0.9
     love.graphics.setColor(luminosity, luminosity, luminosity, 1)
-    love.graphics.draw(self.assets.textures.cardFrames, self.assets.frames.cardFrames[2], self.pos.x + xOffset, self.pos.y + yOffset, 0, scale)
-    love.graphics.draw(self.assets.textures.pips, self.quad, self.pos.x + xOffset, self.pos.y + yOffset, 0, scale)
+    love.graphics.draw(self.assets.textures.cardFrames, self.assets.frames.cardFrames[2], self.pos.x + xOffset + shakeX, self.pos.y + yOffset, 0, scale)
+    love.graphics.draw(self.assets.textures.pips, self.quad, self.pos.x + xOffset + shakeX, self.pos.y + yOffset, 0, scale)
 end
 
 function CardView:onSelected()
-    if self.targetPos.y < self.anchor.y then
+    if self.pos.y < self.anchor.y then
         self:onUnselected()
         return
     end
-    self.targetPos.y = self.anchor.y - 64
+    Timer.tween(0.12, { [self.pos] = { y = self.anchor.y - 64 } })
     for _, button in ipairs(self.actionButtons) do
         button.visible = true
         button.disabled = false
@@ -80,7 +91,7 @@ function CardView:onSelected()
 end
 
 function CardView:onUnselected()
-    self.targetPos.y = self.anchor.y
+    Timer.tween(0.12, { [self.pos] = { y = self.anchor.y } })
     for _, button in ipairs(self.actionButtons) do
         button.visible = false
     end
@@ -99,10 +110,6 @@ function CardView:onClickButton(mouseX, mouseY)
 end
 
 function CardView:update(dt)
-    local speed = 10
-    self.pos.x = self.pos.x + (self.targetPos.x - self.pos.x) * math.min(dt * speed, 1)
-    self.pos.y = self.pos.y + (self.targetPos.y - self.pos.y) * math.min(dt * speed, 1)
-
     if not self.interactive then
         return
     end
@@ -118,6 +125,23 @@ end
 function CardView:isInside(x, y)
     return x >= self.pos.x and x <= self.pos.x + self.size.width and
            y >= self.pos.y and y <= self.pos.y + self.size.height
+end
+
+function CardView:startShake(duration, onComplete)
+    self.shaking = true
+    self.shakeTimer = 0
+    self.shakeDuration = duration
+    self.interactive = false
+    for _, button in ipairs(self.actionButtons) do
+        button.visible = false
+    end
+    Timer.prior(duration, function(_, dt)
+        self.shakeTimer = self.shakeTimer + dt
+    end):finish(function()
+        self.shaking = false
+        self.shakeTimer = 0
+        if onComplete then onComplete() end
+    end)
 end
 
 function CardView:createActionButtons()
@@ -152,7 +176,7 @@ function CardView:createActionButtons()
                 y = self.pos.y + 36,
                 width = bWidth,
                 height = 24,
-                text = "Fight",
+                text = "Armor",
                 color = {HexToRgb("FFE97F7F")},
                 onClick = function()
                     eventBus:publish("action", Actions.PlayCardAction:new(card, true))
@@ -164,7 +188,7 @@ function CardView:createActionButtons()
                 y = self.pos.y + 65,
                 width = bWidth + 20,
                 height = 24,
-                text = "No armor",
+                text = "Fist",
                 color = {HexToRgb("FF6F9BED")},
                 onClick = function()
                     eventBus:publish("action", Actions.PlayCardAction:new(card, false))
