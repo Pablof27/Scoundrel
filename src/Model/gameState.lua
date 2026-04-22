@@ -94,7 +94,6 @@ function GameState:addToDiscard(cards)
     end
 end
 
--- Query methods — the Controller calls these to decide end-game transitions
 function GameState:isPlayerDead()
     return self.player.lifes <= 0
 end

@@ -9,7 +9,6 @@ local utils = require("src.Core.utils")
 local AssetManager = {}
 AssetManager.__index = AssetManager
 
--- Re-export display constants from the shared constants module
 AssetManager.WIDTH  = Constants.WIDTH
 AssetManager.HEIGHT = Constants.HEIGHT
 AssetManager.SCALE  = Constants.SCALE

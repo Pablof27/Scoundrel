@@ -310,11 +310,8 @@ function GameView:addFloatingNumber(x, y, text, color)
     table.insert(self.damageNumbers, dn)
 
     local duration = 0.9
-    -- Float upward over full duration
     Timer.tween(duration, { [dn] = { y = y - 30 } })
-    -- Scale from 2 → 1 quickly in the first quarter
     Timer.tween(duration * 0.25, { [dn] = { scale = 1.0 } })
-    -- Fade out in the second half, then remove
     Timer.after(duration * 0.5, function()
         Timer.tween(duration * 0.5, { [dn] = { alpha = 0 } }):finish(function()
             for i, d in ipairs(self.damageNumbers) do
