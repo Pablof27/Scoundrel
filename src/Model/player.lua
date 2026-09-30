@@ -38,15 +38,31 @@ function Player:addWeapon(card)
     return discards
 end
 
-function Player:takeDamage(card, useArmor)
-    if not useArmor or not self:canUseArmor(card) then
-        self.lifes = self.lifes - card.value
-        return card
+-- Damage a monster would deal, and whether the weapon would be used against it.
+function Player:damageFrom(card, useArmor)
+    if useArmor and self:canUseArmor(card) then
+        return math.max(0, card.value - self.armor.card.value), true
     end
+    return card.value, false
+end
 
-    table.insert(self.armor.defendedCards, card)
-    self.lifes = self.lifes - math.max(0, card.value - self.armor.card.value)
-    return {}
+-- Returns the discarded cards, the damage taken and whether the weapon was used.
+function Player:takeDamage(card, useArmor)
+    local damage, usedArmor = self:damageFrom(card, useArmor)
+    self.lifes = self.lifes - damage
+    if usedArmor then
+        table.insert(self.armor.defendedCards, card)
+        return {}, damage, true
+    end
+    return { card }, damage, false
+end
+
+-- Monsters must be strictly below this value to be fought with the weapon (nil = any monster).
+function Player:armorLimit()
+    if not self:hasArmor() or #self.armor.defendedCards == 0 then
+        return nil
+    end
+    return self.armor.defendedCards[#self.armor.defendedCards].value
 end
 
 function Player:hasArmor()

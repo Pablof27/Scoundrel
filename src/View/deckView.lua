@@ -1,105 +1,81 @@
 --[[
     DeckView
-    Renders the draw pile and handles next-room/skip-room clicks.
-    Receives assets, eventBus, mouseProvider, and gameStateQuery.
-    No global dependencies.
+    Renders the dungeon (draw pile) as a stack of card backs with a remaining-cards badge.
+    Cards are dealt from, and fled back into, topPosition(). Purely visual: no game actions.
 ]]
 
-local Actions = require("src.Controller.playerAction")
+local Anim = require("src.View.anim")
+local UI   = require("src.View.ui")
 
 local DeckView = {}
 DeckView.__index = DeckView
 
-function DeckView:new(x, y, context)
+local MAX_LAYERS = 8
+local LAYER_DX, LAYER_DY = -0.5, -1.5
+
+function DeckView:new(assets, x, y)
     local o = setmetatable({}, self)
-    o.assets          = context.assets
-    o.eventBus        = context.eventBus
-    o.mouseProvider   = context.mouseProvider
-    o.gameStateQuery  = context.gameStateQuery
-    o.size     = o.assets:getCardSize()
-    o.pos      = { x = x, y = y - o.size.height / 2 + 2 }
+    o.assets   = assets
+    o.x, o.y   = x, y  -- center of the bottom card
+    o.size     = assets:getCardSize()
+    o.count    = 0
+    o.juice    = nil
     o.hoovered = false
     return o
 end
 
-function DeckView:render()
-    local xOffset = 0
-    local yOffset = 0
-    love.graphics.setColor(0.65, 0.65, 0.65, 1)
-    for i = 0, 3 do
-        love.graphics.draw(self.assets.textures.cardFrames, self.assets.frames.cardFrames[1], self.pos.x + xOffset, self.pos.y - yOffset)
-        xOffset = xOffset + 2
-        yOffset = yOffset + 2
+function DeckView:setCount(count)
+    if count ~= self.count then
+        self.juice = Anim.newJuice(0.05, 0.01, 0.3)
     end
-
-    local scale = 1
-    if self.hoovered then
-        scale = 1.04
-        yOffset = yOffset + (scale - 1) * self.size.height / 2
-        xOffset = xOffset - (scale - 1) * self.size.width / 2
-    end
-
-    love.graphics.setColor(0.85, 0.85, 0.85, 1)
-    love.graphics.draw(self.assets.textures.cardFrames, self.assets.frames.cardFrames[1], self.pos.x + xOffset, self.pos.y - yOffset, 0, scale)
-
-    if not self.hoovered then
-        return
-    end
-
-    local squareSize = self.size.width * 0.75
-    xOffset = xOffset + (self.size.width - squareSize) / 2 + (scale - 1) * self.size.width / 2
-    yOffset = yOffset - (self.size.height - squareSize) / 2 - (scale - 1) * self.size.height / 2 - 4
-    love.graphics.setColor(0, 0, 0, 0.3)
-    love.graphics.rectangle("fill", self.pos.x + xOffset, self.pos.y - yOffset, squareSize, squareSize * 0.85, 4, 4)
-    love.graphics.setColor(0.9, 0.9, 0.9, 1)
-    love.graphics.setFont(self.assets.fonts.medium)
-
-    local gameState = self.gameStateQuery()
-    if gameState:canGoNextRoom() then
-        love.graphics.printf("Next", self.pos.x + xOffset, self.pos.y - yOffset + 3, squareSize, "center")
-        love.graphics.printf("Room", self.pos.x + xOffset, self.pos.y - yOffset + 23, squareSize, "center")
-        return
-    end
-    if gameState:canSkipRoom() then
-        love.graphics.printf("Skip", self.pos.x + xOffset, self.pos.y - yOffset + 3, squareSize, "center")
-        love.graphics.printf("Room", self.pos.x + xOffset, self.pos.y - yOffset + 23, squareSize, "center")
-        return
-    end
-    love.graphics.printf("No", self.pos.x + xOffset, self.pos.y - yOffset + 3, squareSize, "center")
-    love.graphics.printf("Skip", self.pos.x + xOffset, self.pos.y - yOffset + 23, squareSize, "center")
+    self.count = count
 end
 
-function DeckView:onClick(mouseX, mouseY)
-    if not self:isInside(mouseX, mouseY) then
-        return false
-    end
-    local gameState = self.gameStateQuery()
-    if gameState:canGoNextRoom() then
-        self.eventBus:publish("action", Actions.NextRoomAction:new())
-        return true
-    end
-    if gameState:canSkipRoom() then
-        self.eventBus:publish("action", Actions.SkipRoomAction:new())
-        return true
-    end
-    return true
+function DeckView:layers()
+    return math.min(MAX_LAYERS, math.ceil(self.count / 4))
 end
 
-function DeckView:update(dt)
-    self.hoovered = false
-    local mouseX, mouseY = self.mouseProvider()
-    if self:isInside(mouseX, mouseY) then
-        self.hoovered = true
-    end
+function DeckView:topPosition()
+    local n = math.max(0, self:layers() - 1)
+    return self.x + n * LAYER_DX, self.y + n * LAYER_DY
 end
 
 function DeckView:isInside(mouseX, mouseY)
-    local cardWidth = self.size.width
-    local cardHeight = self.size.height
-    local xOffset = 2 * 4
-    local yOffset = 2 * 4
-    return mouseX >= self.pos.x + xOffset and mouseX <= self.pos.x + xOffset + cardWidth and
-           mouseY >= self.pos.y - yOffset and mouseY <= self.pos.y - yOffset + cardHeight
+    return math.abs(mouseX - self.x) <= self.size.width / 2 and
+           math.abs(mouseY - self.y) <= self.size.height / 2
+end
+
+function DeckView:update(dt, mouseX, mouseY)
+    self.juice = Anim.updateJuice(self.juice, dt)
+    self.hoovered = mouseX ~= nil and self:isInside(mouseX, mouseY)
+end
+
+function DeckView:render()
+    local assets = self.assets
+    local w, h = self.size.width, self.size.height
+    local layers = self:layers()
+
+    if layers == 0 then
+        UI.box(self.x - w / 2, self.y - h / 2, w, h, UI.colors.panelDark, { radius = 6, alpha = 0.3 })
+        UI.textCentered("EMPTY", self.x, self.y, assets.fonts.small, UI.colors.textDim, { alpha = 0.7 })
+        return
+    end
+
+    local s = 1 + (self.juice and self.juice.scale or 0)
+    love.graphics.setColor(0, 0, 0, 0.3)
+    love.graphics.rectangle("fill", self.x - w / 2 + 3, self.y - h / 2 + 4, w, h, 6, 6)
+    for i = 0, layers - 1 do
+        local shade = (i == layers - 1) and 1 or (0.7 + 0.03 * i)
+        love.graphics.setColor(shade, shade, shade, 1)
+        love.graphics.draw(assets.textures.cards, assets:cardQuad(nil),
+            self.x + i * LAYER_DX, self.y + i * LAYER_DY, 0, s, s, w / 2, h / 2)
+    end
+
+    local topX, topY = self:topPosition()
+    local label = tostring(self.count)
+    local badgeW = math.max(22, assets.fonts.small:getWidth(label) + 10)
+    UI.box(topX - badgeW / 2, topY + h / 2 - 20, badgeW, 15, UI.colors.panelDark, { radius = 4, depth = 2, alpha = 0.9 })
+    UI.textCentered(label, topX, topY + h / 2 - 12.5, assets.fonts.small, UI.colors.text)
 end
 
 return DeckView

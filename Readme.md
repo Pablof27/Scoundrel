@@ -4,47 +4,58 @@ A single-player roguelike card game built with [LÖVE2D](https://love2d.org/) an
 
 ## Features
 
-- Pixel art card sprites with an 8-bit aesthetic
-- 17 GLSL shaders for card effects (dissolve, flame, hologram, foil, polychrome, etc.)
-- CRT post-processing filter for a retro feel
-- Animated background shader
-- Undo system to revert actions
-- Smooth fade transitions between screens
+- Home screen with an illustrated **How to Play** tutorial and **Settings** (fullscreen, CRT effect, screen shake, animation speed, card back, FPS counter) saved between sessions
+- Balatro-style card feel: spring physics, "juice" pops, idle sway, 3D tilt towards the mouse, dealing/flipping/burning animations, particles and screen shake
+- One-click play with previews: hovering a card shows exactly what it will do (damage, healing, weapon reach) on the card's action tabs, in the health bar and in a hint line
+- Explicit **WEAPON** / **FISTS** choice for monsters, a **FLEE** button that explains why it is unavailable, and the next room is dealt automatically
+- Run stats panel (health, room, cards left, time, monsters and bosses slain, damage taken/blocked, potions, weapons, rooms fled)
+- End-of-run summary with the official Scoundrel scoring and your personal best
+- Undo for the cards resolved in the current room
+- Pixel art card sprites, GLSL shaders (card tilt + dissolve, animated background, CRT post-processing)
 - Event-driven MVC architecture with an EventBus
 
 ## How to Play
 
-**Goal:** Clear all cards from the deck before your health reaches 0.
+**Goal:** Resolve every card of the dungeon before your health (20) reaches 0.
 
-**Rooms:** Each room deals 4 cards. You must play 3 in any order — the last card carries over.
+**Rooms:** Each room deals 4 cards. Resolve 3 of them in any order — the 4th stays and becomes part of the next room, which is dealt automatically. In the final room (empty dungeon) every remaining card must be resolved.
 
 ### Card Types
 
 | Suit | Role | Effect |
 |------|------|--------|
-| ♥ Hearts | Potions | Heal by the card's value. Only one potion per room. |
-| ♦ Diamonds | Weapons | Equip to fight monsters. Power = card value. |
-| ♣ Clubs / ♠ Spades | Monsters | Strength = card value (J=11, Q=12, K=13, A=14). |
+| ♥ Hearts | Potions | Heal by the card's value (max 20). Only one potion per room works; any other is wasted. |
+| ♦ Diamonds | Weapons | Equip to fight monsters. Equipping one discards the previous weapon and its slain monsters. |
+| ♣ Clubs / ♠ Spades | Monsters | Deal damage equal to their value (J=11, Q=12, K=13, A=14). |
+
+The dungeon has 44 cards: every club and spade, plus hearts and diamonds from 2 to 10.
 
 ### Combat
 
-- **No weapon equipped:** Take full monster damage.
-- **With weapon (no level):** Take `max(0, monster − weapon)` damage. Weapon level becomes the monster's value.
-- **With weapon (has level):** If monster > level, take full damage. Otherwise, take `max(0, monster − weapon)` damage and level becomes the monster's value.
-- **Barehand:** Choose to take full damage instead of using your weapon. Toggle via the blade card button.
+- **Barehanded (FISTS):** Take the monster's full value as damage.
+- **With a weapon:** Take `max(0, monster − weapon)` damage. The monster is stacked on the weapon.
+- **Weapon reach:** Once a weapon has slain a monster, it can only be used against monsters weaker than the last one it slew. You can always fight barehanded to keep the weapon fresh.
 
 ### Flee
 
-Skip a room — all 4 cards move to the bottom of the deck. You cannot flee two rooms in a row.
+Before resolving any card of a room you may flee: its 4 cards go to the bottom of the dungeon and a new room is dealt. You cannot flee two rooms in a row.
+
+### Score
+
+- **Escaped:** your remaining health (plus the potion's value if your last card was a potion drunk at full health).
+- **Died:** your health minus the value of every monster left in the dungeon.
 
 ## Controls
 
 | Input | Action |
 |-------|--------|
-| Click a card | Play that card |
-| Click the blade | Toggle fight / barehand mode |
-| `U` | Undo last action |
-| `Escape` | Quit |
+| Hover a card | Preview what it will do |
+| Click a card | Resolve it (monsters use your weapon when possible) |
+| Click a tab under a card | Resolve it that way (`WEAPON` / `FISTS`) |
+| Right-click a monster | Fight it barehanded |
+| `FLEE` button | Skip the current room |
+| `UNDO` button, `U`, `Backspace`, `Ctrl/Cmd+Z` | Undo the last card resolved in this room |
+| `Escape` | Pause menu (quits from the home screen) |
 
 ## Getting Started
 
@@ -68,36 +79,47 @@ On macOS you can also drag the project folder onto the LÖVE application.
 ## Project Structure
 
 ```
-main.lua                  — Composition root, wires all modules
+main.lua                  — Composition root, wires all modules and resolves screen navigation
 src/
   Core/
-    AssetManager.lua      — Centralized asset loading (textures, fonts, shaders)
+    AssetManager.lua      — Asset loading (textures, baked card atlas, fonts, shaders)
     EventBus.lua          — Publish/subscribe event system
     constants.lua         — Game configuration values
+    settings.lua          — User preferences (persisted)
+    records.lua           — Lifetime records: runs, wins, best score (persisted)
+    storage.lua           — Safe key/value persistence in the save directory
     utils.lua             — Utility functions
   Controller/
-    game.lua              — Game controller, processes actions via EventBus
+    game.lua              — Game controller, processes actions via EventBus, undo history
     playerAction.lua      — Action definitions (Play, Skip, Next, Undo)
-    stateStack.lua        — View state stack manager
+    stateStack.lua        — Screen/overlay stack manager
   Model/
     card.lua              — Card (suit + value)
-    deck.lua              — Deck of 52 cards with shuffle/draw
-    gameState.lua         — Core game logic and state
-    player.lua            — Player health and weapon/armor
+    deck.lua              — Deck of 44 cards with shuffle/draw
+    gameState.lua         — Core rules, previews, run stats and scoring
+    player.lua            — Player health and weapon
     room.lua              — Current room of 4 cards
   View/
+    anim.lua              — Springs, juice and easing helpers
+    ui.lua                — Palette and drawing helpers (boxes, text, icons)
+    effects.lua           — Floating texts and particle bursts
     buttonView.lua        — Clickable UI button
-    cardView.lua          — Card rendering with shader effects
-    deckView.lua          — Deck pile rendering
+    cardView.lua          — Animated card sprite (springs, tilt, flip, dissolve)
+    deckView.lua          — Dungeon pile rendering
+    sidebarView.lua       — Health and run stats panel
     states/
+      menuView.lua        — Home screen
       gameView.lua        — Main gameplay screen
-      endGameView.lua     — Win/lose screen
+      pauseView.lua       — In-game menu overlay
+      rulesView.lua       — How to Play tutorial
+      settingsView.lua    — Settings overlay
+      endGameView.lua     — End-of-run summary
       transitionView.lua  — Fade transition overlay
 lib/
   push.lua                — Resolution-independent rendering
   timer.lua               — Tweens and timers
 resources/                — Sprites and fonts
-shaders/                  — GLSL fragment shaders
+shaders/                  — GLSL fragment shaders (card.fs: tilt + dissolve)
 ```
 
 ## Architecture

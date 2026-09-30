@@ -36,6 +36,7 @@ function SkipRoomAction:new()
     local o = setmetatable({}, self)
     o.isUndo = false
     o.eventType = "roomChanged"
+    o.reason = "flee"
     return o
 end
 
@@ -51,6 +52,7 @@ function NextRoomAction:new()
     local o = setmetatable({}, self)
     o.isUndo = false
     o.eventType = "roomChanged"
+    o.reason = "next"
     return o
 end
 

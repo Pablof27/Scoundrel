@@ -12,6 +12,7 @@ local GameState = {}
 GameState.__index = GameState
 
 local CARDS_PER_ROOM = Constants.CARDS_PER_ROOM
+local MAX_LIFES      = Constants.MAX_LIFES
 
 function GameState:new()
     local o = setmetatable({}, self)
@@ -22,62 +23,157 @@ function GameState:new()
     o.skippedLast = false
     o.errorMsg    = nil
     o.canUndo     = false
+    o.roomNumber  = 1
+    o.potionUsedThisRoom = false
+    o.lastOutcome = nil
+    o.stats = {
+        cardsPlayed     = 0,
+        monstersSlain   = 0,
+        bossesSlain     = 0,
+        damageTaken     = 0,
+        damageBlocked   = 0,
+        potionsDrunk    = 0,
+        healed          = 0,
+        potionsWasted   = 0,
+        weaponsEquipped = 0,
+        roomsFled       = 0,
+    }
     return o
 end
 
 function GameState:skipRoomIfPossible()
     if not self:canSkipRoom() then
-        self.errorMsg = "Cannot skip two rooms in a row"
+        self.errorMsg = "Cannot skip room: " .. tostring(self:skipBlockedReason())
         return false
     end
     self.skippedLast = true
     self.canUndo = false
+    self.potionUsedThisRoom = false
+    self.roomNumber = self.roomNumber + 1
+    self.stats.roomsFled = self.stats.roomsFled + 1
     self.drawPile:addToBottom(self.room:shuffledRoom())
     self.room:replaceCards(self.drawPile:drawCards(CARDS_PER_ROOM))
     return true
 end
 
 function GameState:canSkipRoom()
-    return not self.skippedLast and self.room:isRoomComplete()
+    return self:skipBlockedReason() == nil
+end
+
+-- Why the room cannot be fled right now: "deckEmpty", "roomStarted", "fledLast" or nil.
+function GameState:skipBlockedReason()
+    if self.drawPile:isEmpty() then
+        return "deckEmpty"
+    end
+    if not self.room:isRoomComplete() then
+        return "roomStarted"
+    end
+    if self.skippedLast then
+        return "fledLast"
+    end
+    return nil
 end
 
 function GameState:nextRoomIfPossible()
-    if #self.room.cards ~= 1 then
-        self.errorMsg = "Cannot proceed to next room: more than one card remains"
+    if not self:canGoNextRoom() then
+        self.errorMsg = "Cannot proceed to next room: one card must remain and the deck must not be empty"
         return false
     end
     self.skippedLast = false
     self.canUndo = false
+    self.potionUsedThisRoom = false
+    self.roomNumber = self.roomNumber + 1
     self.room:replenishRoom(self.drawPile:drawCards(CARDS_PER_ROOM - 1))
     return true
 end
 
 function GameState:canGoNextRoom()
-    return #self.room.cards == 1
+    return #self.room.cards == 1 and not self.drawPile:isEmpty()
+end
+
+-- The last card of a room always stays for the next one, except in the final room.
+function GameState:canPlayCard(card)
+    if not self.room:contains(card) then
+        return false
+    end
+    return #self.room.cards > 1 or self.drawPile:isEmpty()
+end
+
+function GameState:isFinalRoom()
+    return self.drawPile:isEmpty()
+end
+
+--[[
+    Describes what playing a card would do, without changing anything.
+    Returns a table with `kind` ("potion", "weapon" or "monster") and:
+      potion:  heal, wasted, lifeAfter
+      weapon:  replaced (card or nil), discardCount, lifeAfter
+      monster: damage, usedWeapon, weaponUsable, lethal, lifeAfter
+]]
+function GameState:previewCard(card, useArmor)
+    local player = self.player
+    local preview = { card = card }
+    if card:isHeart() then
+        preview.kind = "potion"
+        preview.wasted = self.potionUsedThisRoom
+        preview.heal = preview.wasted and 0 or math.min(card.value, MAX_LIFES - player.lifes)
+        preview.lifeAfter = player.lifes + preview.heal
+    elseif card:isDiamond() then
+        preview.kind = "weapon"
+        preview.replaced = player:hasArmor() and player.armor.card or nil
+        preview.discardCount = player:hasArmor() and (1 + #player.armor.defendedCards) or 0
+        preview.lifeAfter = player.lifes
+    else
+        preview.kind = "monster"
+        preview.weaponUsable = player:canUseArmor(card)
+        preview.damage, preview.usedWeapon = player:damageFrom(card, useArmor ~= false)
+        preview.lifeAfter = player.lifes - preview.damage
+        preview.lethal = preview.lifeAfter <= 0
+    end
+    return preview
 end
 
 function GameState:playCardIfPossible(card, useArmor)
-    if not self.room:removeCard(card) then
-        self.errorMsg = "Selected card is not in the room"
+    if not self:canPlayCard(card) then
+        self.errorMsg = "Selected card cannot be played"
         return false
     end
 
+    local outcome = self:previewCard(card, useArmor)
+    local stats = self.stats
+    self.room:removeCard(card)
     self.canUndo = true
+    stats.cardsPlayed = stats.cardsPlayed + 1
 
-    if card:isHeart() then
-        self.player:heal(card.value)
+    if outcome.kind == "potion" then
+        -- Only one potion per room heals; any further potion is simply discarded.
+        if outcome.wasted then
+            stats.potionsWasted = stats.potionsWasted + 1
+        else
+            self.player:heal(card.value)
+            self.potionUsedThisRoom = true
+            stats.potionsDrunk = stats.potionsDrunk + 1
+            stats.healed = stats.healed + outcome.heal
+        end
         table.insert(self.discardPile, card)
-        return true
-    end
-    if card:isDiamond() then
-        local discards = self.player:addWeapon(card)
+    elseif outcome.kind == "weapon" then
+        outcome.discarded = self.player:addWeapon(card)
+        self:addToDiscard(outcome.discarded)
+        stats.weaponsEquipped = stats.weaponsEquipped + 1
+    else
+        local discards = self.player:takeDamage(card, outcome.usedWeapon)
         self:addToDiscard(discards)
-        return true
+        stats.damageTaken = stats.damageTaken + outcome.damage
+        stats.damageBlocked = stats.damageBlocked + (card.value - outcome.damage)
+        if not self:isPlayerDead() then
+            stats.monstersSlain = stats.monstersSlain + 1
+            if card:isBoss() then
+                stats.bossesSlain = stats.bossesSlain + 1
+            end
+        end
     end
 
-    useArmor = useArmor ~= false
-    local discards = self.player:takeDamage(card, useArmor)
-    self:addToDiscard(discards)
+    self.lastOutcome = outcome
     return true
 end
 
@@ -85,7 +181,9 @@ function GameState:nextState(playerAction)
     self.errorMsg = nil
     if not playerAction:execute(self) then
         print("Action could not be executed: " .. tostring(self.errorMsg))
+        return false
     end
+    return true
 end
 
 function GameState:addToDiscard(cards)
@@ -98,8 +196,39 @@ function GameState:isPlayerDead()
     return self.player.lifes <= 0
 end
 
+-- The dungeon is cleared once every card has been drawn and resolved.
 function GameState:isVictory()
-    return self.drawPile:isEmpty() and not self.room:isRoomComplete()
+    return not self:isPlayerDead() and self.drawPile:isEmpty() and #self.room.cards == 0
+end
+
+function GameState:isOver()
+    return self:isPlayerDead() or self:isVictory()
+end
+
+--[[
+    Official Scoundrel scoring:
+    - Dead: remaining health minus the value of every monster still in the dungeon.
+    - Escaped: remaining health, plus the potion's value if the last card was a potion drunk at full health.
+]]
+function GameState:score()
+    if self:isPlayerDead() then
+        local remaining = 0
+        for _, pile in ipairs({ self.room.cards, self.drawPile.cards }) do
+            for _, card in ipairs(pile) do
+                if card:isMonster() then
+                    remaining = remaining + card.value
+                end
+            end
+        end
+        return self.player.lifes - remaining
+    end
+
+    local score = self.player.lifes
+    local last = self.lastOutcome
+    if last and last.kind == "potion" and not last.wasted and self.player.lifes == MAX_LIFES then
+        score = score + last.card.value
+    end
+    return score
 end
 
 return GameState

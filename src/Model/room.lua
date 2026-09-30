@@ -24,6 +24,15 @@ function Room:replenishRoom(newCards)
     end
 end
 
+function Room:contains(card)
+    for _, c in ipairs(self.cards) do
+        if c == card then
+            return true
+        end
+    end
+    return false
+end
+
 function Room:removeCard(card)
     for i, c in ipairs(self.cards) do
         if c == card then

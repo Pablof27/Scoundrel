@@ -21,6 +21,9 @@ Constants.MAX_LIFES      = 20
 Constants.CARDS_PER_ROOM = 4
 
 -- UI / Layout
-Constants.ROOM_SPACING        = 8
-Constants.PLAYER_AREA_SIZE    = { width = 350, height = 100 }
-Constants.PLAYER_AREA_SPACING = 32
+-- The CRT post-process zooms in slightly, so keep important UI inside this margin.
+Constants.SAFE_X        = 26
+Constants.SAFE_Y        = 16
+Constants.SIDEBAR_WIDTH = 160
+Constants.ROOM_SPACING  = 12
+Constants.STACK_SPACING = 24

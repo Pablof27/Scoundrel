@@ -29,44 +29,47 @@ function Game:start()
 end
 
 function Game:perform(action)
+    if self.gameState == nil or self.gameState:isOver() then
+        return
+    end
     if action.isUndo then
-        if not self.gameState.canUndo then
-            self.gameState.errorMsg = "Cannot undo last action"
-            return
-        end
-        local previousState = table.remove(self.history)
-        if previousState == nil then
-            self.gameState.errorMsg = "No previous state to go back to"
-            return
-        end
-        self.gameState = previousState
-        self.eventBus:publish("roomChanged", self.gameState)
-        self.eventBus:publish("playerChanged", self.gameState)
+        self:undo()
         return
     end
 
-    table.insert(self.history, DeepCopy(self.gameState))
-    local lifesBefore = self.gameState.player.lifes
-    self.gameState:nextState(action)
+    local snapshot = DeepCopy(self.gameState)
+    if not self.gameState:nextState(action) then
+        return
+    end
 
     if action.eventType == "roomChanged" then
-        self.eventBus:publish("roomChanged", self.gameState)
-    elseif action.eventType == "cardPlayed" then
-        local delta = self.gameState.player.lifes - lifesBefore  -- positive = healed, negative = damaged
-        self.eventBus:publish("cardPlayed", action.card, delta)
+        -- Undo never crosses into a previous room, so older snapshots are useless.
+        self.history = {}
+        self.eventBus:publish("roomChanged", self.gameState, action.reason)
+    else
+        table.insert(self.history, snapshot)
+        self.eventBus:publish("cardPlayed", self.gameState, self.gameState.lastOutcome)
     end
 
     self:checkEndGame()
 end
 
-function Game:checkEndGame()
-    if self.gameState:isPlayerDead() then
-        self.eventBus:publish("endGame", false)
-        return
+function Game:canUndo()
+    return self.gameState.canUndo and #self.history > 0
+end
+
+function Game:undo()
+    if not self:canUndo() then
+        return false
     end
-    if self.gameState:isVictory() then
-        self.eventBus:publish("endGame", true)
-        return
+    self.gameState = table.remove(self.history)
+    self.eventBus:publish("stateRestored", self.gameState)
+    return true
+end
+
+function Game:checkEndGame()
+    if self.gameState:isOver() then
+        self.eventBus:publish("endGame", self.gameState:isVictory(), self.gameState)
     end
 end
 

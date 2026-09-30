@@ -30,6 +30,15 @@ function Card:isSpade()
     return self.suit == 3
 end
 
+function Card:isMonster()
+    return self:isClub() or self:isSpade()
+end
+
+-- Face cards and aces (J, Q, K, A).
+function Card:isBoss()
+    return self:isMonster() and self.value >= 11
+end
+
 function Card.__eq(card1, card2)
     return card1.value == card2.value and card1.suit == card2.suit
 end

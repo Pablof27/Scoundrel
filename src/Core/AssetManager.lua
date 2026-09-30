@@ -4,7 +4,7 @@
     Replaces the old global Textures/Frames/Fonts/Shaders tables.
 ]]
 
-local utils = require("src.Core.utils")
+require("src.Core.utils")
 
 local AssetManager = {}
 AssetManager.__index = AssetManager
@@ -18,12 +18,21 @@ AssetManager.BACKGROUND_COLOR2 = Constants.BACKGROUND_COLOR2
 AssetManager.BACKGROUND_COLOR3 = Constants.BACKGROUND_COLOR3
 AssetManager.BACKGROUND_COLOR  = Constants.BACKGROUND_COLOR
 
+-- Card backs (indices into Enhancers.png), in the same order as the "Card back" setting.
+local CARD_BACK_FRAMES = { 1, 15, 16, 17, 18, 20, 4, 32 }
+local BACK_ROW = 4
+
+-- Indices into ui_assets.png
+AssetManager.ICONS = { sun = 1, letter = 2, torch = 3, hash = 4, heart = 5, diamond = 6, club = 7, spade = 8 }
+
 function AssetManager:new()
     local o = setmetatable({}, self)
     o.textures = {}
     o.frames   = {}
     o.fonts    = {}
     o.shaders  = {}
+    o.time     = 0
+    o.cardBack = 1
     return o
 end
 
@@ -48,16 +57,72 @@ function AssetManager:load()
         self.textures.uiAssets:getWidth() / 4,
         self.textures.uiAssets:getHeight() / 2
     )
+    self:composeCardAtlas()
 
-    self.fonts.small  = love.graphics.newFont("resources/m6x11plus.ttf", 8)
+    self.fonts.tiny   = love.graphics.newFont("resources/m6x11plus.ttf", 8)
+    self.fonts.small  = love.graphics.newFont("resources/m6x11plus.ttf", 12)
     self.fonts.medium = love.graphics.newFont("resources/m6x11plus.ttf", 16)
+    self.fonts.big    = love.graphics.newFont("resources/m6x11plus.ttf", 24)
     self.fonts.large  = love.graphics.newFont("resources/m6x11plus.ttf", 32)
+    self.fonts.title  = love.graphics.newFont("resources/m6x11plus.ttf", 64)
 
     self.shaders.background = love.graphics.newShader("shaders/background.fs")
     self.shaders.CRT        = love.graphics.newShader("shaders/CRT.fs")
+    self.shaders.card       = love.graphics.newShader("shaders/card.fs")
     self:setupShaders()
 
     return self
+end
+
+-- Bakes every card face (frame + pips) and every card back into a single atlas,
+-- so a card is one quad and the card shader can dissolve it as a whole.
+function AssetManager:composeCardAtlas()
+    local size = self:getCardSize()
+    local w, h = size.width, size.height
+    local canvas = love.graphics.newCanvas(w * 13, h * (BACK_ROW + 1), { dpiscale = 1 })
+
+    love.graphics.push("all")
+    love.graphics.setCanvas(canvas)
+    love.graphics.clear(0, 0, 0, 0)
+    love.graphics.setColor(1, 1, 1, 1)
+    for position = 1, 52 do
+        local col, row = (position - 1) % 13, math.floor((position - 1) / 13)
+        love.graphics.draw(self.textures.cardFrames, self.frames.cardFrames[2], col * w, row * h)
+        love.graphics.draw(self.textures.pips, self.frames.pips[position], col * w, row * h)
+    end
+    for i, frame in ipairs(CARD_BACK_FRAMES) do
+        love.graphics.draw(self.textures.cardFrames, self.frames.cardFrames[frame], (i - 1) * w, BACK_ROW * h)
+    end
+    love.graphics.pop()
+
+    self.textures.cards = love.graphics.newImage(canvas:newImageData())
+    self.textures.cards:setFilter("nearest", "nearest")
+
+    local atlasW, atlasH = self.textures.cards:getDimensions()
+    self.frames.cardFaces = {}
+    for position = 1, 52 do
+        local col, row = (position - 1) % 13, math.floor((position - 1) / 13)
+        self.frames.cardFaces[position] = love.graphics.newQuad(col * w, row * h, w, h, atlasW, atlasH)
+    end
+    self.frames.cardBacks = {}
+    for i = 1, #CARD_BACK_FRAMES do
+        self.frames.cardBacks[i] = love.graphics.newQuad((i - 1) * w, BACK_ROW * h, w, h, atlasW, atlasH)
+    end
+end
+
+-- Atlas cell (column, row) of a card face, or of the current card back when position is nil.
+function AssetManager:cardCell(position)
+    if position == nil then
+        return self.cardBack - 1, BACK_ROW
+    end
+    return (position - 1) % 13, math.floor((position - 1) / 13)
+end
+
+function AssetManager:cardQuad(position)
+    if position == nil then
+        return self.frames.cardBacks[self.cardBack]
+    end
+    return self.frames.cardFaces[position]
 end
 
 function AssetManager:setupShaders()
@@ -74,12 +139,15 @@ function AssetManager:setupShaders()
     self.shaders.CRT:send("crt_intensity", 0.03)
     self.shaders.CRT:send("glitch_intensity", 0)
     self.shaders.CRT:send("scanlines", 450.0)
+    self.shaders.card:send("image_details", { self.textures.cards:getDimensions() })
 end
 
-function AssetManager:updateShaderTime()
-    self.shaders.background:send("time", love.timer.getTime())
+function AssetManager:update(dt)
+    self.time = self.time + dt
+    self.shaders.background:send("time", self.time)
     self.shaders.background:send("spin_time", 0)
-    self.shaders.CRT:send("time", love.timer.getTime())
+    self.shaders.CRT:send("time", self.time)
+    self.shaders.card:send("time", self.time)
 end
 
 function AssetManager:getCardSize()
