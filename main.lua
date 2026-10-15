@@ -99,6 +99,7 @@ function love.load()
     love.filesystem.setIdentity("scoundrel")
     love.graphics.setDefaultFilter("nearest", "nearest")
     love.window.setTitle("Scoundrel")
+    love.window.setIcon(love.image.newImageData("resources/icon.png"))
     math.randomseed(os.time())
 
     assets = AssetManager:new()
