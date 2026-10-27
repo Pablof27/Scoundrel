@@ -207,6 +207,7 @@ function RulesView:goTo(page)
     end
     self.page = page
     self.pageJuice = Anim.newJuice(0.12, 0.02, 0.3)
+    self.assets.audio:play("deal")
     self:buildPage()
 end
 

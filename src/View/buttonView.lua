@@ -90,6 +90,7 @@ function Button:update(dt, focused)
     local over = focused ~= false and self.visible and self:isInside(mouseX, mouseY)
     if over and not self.hoovered and not self.disabled then
         self.juice = Anim.newJuice(0.06, 0.015, 0.3)
+        self.assets.audio:play("hover", { variation = 0.1 })
     end
     self.hoovered = over
     self.press = math.max(0, self.press - dt * 5)
@@ -102,10 +103,12 @@ function Button:onMouseClick(mouseX, mouseY)
     end
     if self.disabled then
         self.juice = Anim.newJuice(0.03, 0.06, 0.25)
+        self.assets.audio:play("denied")
         return true
     end
     self.press = 1
     self.juice = Anim.newJuice(0.12, 0.02, 0.35)
+    self.assets.audio:play("click")
     self.onClick()
     return true
 end

@@ -86,6 +86,10 @@ local function onSettingChanged(key, value)
         push:switchFullscreen()
     elseif key == "cardBack" then
         assets.cardBack = value
+    elseif key == "music" then
+        assets.audio:setMusicVolume(value)
+    elseif key == "sound" then
+        assets.audio:setSoundVolume(value)
     end
 end
 
@@ -109,6 +113,8 @@ function love.load()
     settings = Settings:new(eventBus)
     records  = Records:new()
     assets.cardBack = settings:get("cardBack")
+    assets.audio:setSoundVolume(settings:get("sound"))
+    assets.audio:setMusicVolume(settings:get("music"))
 
     game = Game:new(eventBus)
     stateStack = StateStack:new()

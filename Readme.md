@@ -4,7 +4,8 @@ A single-player roguelike card game built with [LÖVE2D](https://love2d.org/) an
 
 ## Features
 
-- Home screen with an illustrated **How to Play** tutorial and **Settings** (fullscreen, CRT effect, screen shake, animation speed, card back, FPS counter) saved between sessions
+- Home screen with an illustrated **How to Play** tutorial and **Settings** (music and sound volume, fullscreen, CRT effect, screen shake, animation speed, card back, FPS counter) saved between sessions
+- Procedurally generated audio: a looping dungeon soundtrack and every sound effect are synthesized in code at startup (no audio files)
 - Balatro-style card feel: spring physics, "juice" pops, idle sway, 3D tilt towards the mouse, dealing/flipping/burning animations, particles and screen shake
 - One-click play with previews: hovering a card shows exactly what it will do (damage, healing, weapon reach) on the card's action tabs, in the health bar and in a hint line
 - Explicit **WEAPON** / **FISTS** choice for monsters, a **FLEE** button that explains why it is unavailable, and the next room is dealt automatically
@@ -82,7 +83,11 @@ On macOS you can also drag the project folder onto the LÖVE application.
 main.lua                  — Composition root, wires all modules and resolves screen navigation
 src/
   Core/
-    AssetManager.lua      — Asset loading (textures, baked card atlas, fonts, shaders)
+    AssetManager.lua      — Asset loading (textures, baked card atlas, fonts, shaders, audio)
+    audio.lua             — Plays sound effects and the music loop at the chosen volumes
+    synth.lua             — Tiny offline synthesizer (oscillators, filtered noise, echo)
+    sounds.lua            — Sound effect recipes
+    music.lua             — Music loop composition (rendered in a background thread)
     EventBus.lua          — Publish/subscribe event system
     constants.lua         — Game configuration values
     settings.lua          — User preferences (persisted)

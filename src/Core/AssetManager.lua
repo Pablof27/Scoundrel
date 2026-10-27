@@ -1,10 +1,12 @@
 --[[
     AssetManager
-    Centralizes loading and access to all game assets (textures, quads, fonts, shaders).
+    Centralizes loading and access to all game assets (textures, quads, fonts, shaders, audio).
     Replaces the old global Textures/Frames/Fonts/Shaders tables.
 ]]
 
 require("src.Core.utils")
+
+local Audio = require("src.Core.audio")
 
 local AssetManager = {}
 AssetManager.__index = AssetManager
@@ -31,6 +33,7 @@ function AssetManager:new()
     o.frames   = {}
     o.fonts    = {}
     o.shaders  = {}
+    o.audio    = Audio:new()
     o.time     = 0
     o.cardBack = 1
     return o
@@ -70,6 +73,8 @@ function AssetManager:load()
     self.shaders.CRT        = love.graphics.newShader("shaders/CRT.fs")
     self.shaders.card       = love.graphics.newShader("shaders/card.fs")
     self:setupShaders()
+
+    self.audio:load()
 
     return self
 end
@@ -144,6 +149,7 @@ end
 
 function AssetManager:update(dt)
     self.time = self.time + dt
+    self.audio:update()
     self.shaders.background:send("time", self.time)
     self.shaders.background:send("spin_time", 0)
     self.shaders.CRT:send("time", self.time)

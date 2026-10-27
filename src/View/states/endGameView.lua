@@ -75,6 +75,9 @@ function EndGameView:update(dt, hasFocus)
     end
     if before < 0.95 and self.time >= 0.95 then
         self.scoreJuice = Anim.newJuice(0.4, 0.1, 0.5)
+        if self.isBest then
+            self.assets.audio:play("heal")
+        end
     end
     self.titleJuice = Anim.updateJuice(self.titleJuice, dt)
     self.scoreJuice = Anim.updateJuice(self.scoreJuice, dt)

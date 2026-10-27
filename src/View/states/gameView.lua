@@ -294,6 +294,7 @@ function GameView:sync(opts)
                 view.flip = -1
                 view.faceUp = true
                 view.delay = (opts.dealDelay or 0) + dealt * DEAL_INTERVAL
+                self:after(view.delay, function() self.assets.audio:play("deal", { variation = 0.15 }) end)
                 dealt = dealt + 1
             end
             view.slot = slot
@@ -388,10 +389,12 @@ function GameView:onCardPlayed(gameState, outcome)
     self.focusKey = nil
     local L, C = self.layout, UI.colors
     local fonts = self.assets.fonts
+    local audio = self.assets.audio
     local card = outcome.card
     local key = card.position
     local view = self.views[key]
     local exits = {}
+    audio:play("deal", { volume = 0.7, variation = 0.15 })
 
     -- Delayed feedback is dropped if the play gets undone before it shows up.
     local token = {}
@@ -407,11 +410,13 @@ function GameView:onCardPlayed(gameState, outcome)
     if outcome.kind == "potion" then
         if outcome.wasted then
             exits[key] = "discard"
+            audio:play("burn")
             self.effects:floatText("WASTED", view.T.x, view.T.y - 10, C.textDim, { font = fonts.big })
         else
             exits[key] = "drink"
             later(0.3, function()
                 local hx, hy = self.sidebar:healthAnchor()
+                audio:play("heal")
                 self.sidebar:setLife(self.state.player.lifes)
                 self.effects:floatText("+" .. outcome.heal, hx + 100, hy - 2, C.heal,
                     { font = self.assets.fonts.big, rise = 12 })
@@ -423,11 +428,15 @@ function GameView:onCardPlayed(gameState, outcome)
         for _, discarded in ipairs(outcome.discarded or {}) do
             exits[discarded.position] = "discard"
         end
+        if outcome.discarded and #outcome.discarded > 0 then
+            audio:play("burn")
+        end
         later(0.25, function()
             local weapon = self:weaponView()
             if weapon then
                 weapon:juiceUp(0.3)
             end
+            audio:play("equip")
             self.effects:burst(L.weaponX, L.weaponY, C.orange, 12, { spread = 40 })
         end)
     elseif outcome.usedWeapon then
@@ -437,6 +446,7 @@ function GameView:onCardPlayed(gameState, outcome)
             if weapon then
                 weapon:juiceUp(0.25)
             end
+            audio:play("block", { volume = outcome.damage > 0 and 0.6 or 1, variation = 0.1 })
             if outcome.damage > 0 then
                 self:hurt(outcome.damage, x, L.weaponY - 20)
             else
@@ -448,6 +458,7 @@ function GameView:onCardPlayed(gameState, outcome)
         exits[key] = "fists"
         local x, y = view.T.x, view.T.y + 36
         later(0.2, function()
+            audio:play("burn", { volume = 0.7 })
             self:hurt(outcome.damage, x, y)
         end)
     end
@@ -473,6 +484,7 @@ function GameView:onRoomChanged(gameState, reason)
         end
         self.slots = {}
         dealDelay = 0.6
+        self.assets.audio:play("flee")
     end
     self.state = gameState
     self.focusKey = nil
@@ -481,6 +493,7 @@ function GameView:onRoomChanged(gameState, reason)
 
     local label = reason == "flee" and "FLED!" or ("ROOM " .. gameState.roomNumber)
     self:showBanner(label, UI.colors.gold, dealDelay)
+    self:after(dealDelay, function() self.assets.audio:play("room") end)
 end
 
 function GameView:onStateRestored(gameState)
@@ -491,6 +504,7 @@ function GameView:onStateRestored(gameState)
     self:sync()
     self.sidebar:setLife(gameState.player.lifes)
     self.lock = 0.2
+    self.assets.audio:play("undo")
     local button = self.undoButton
     self.effects:floatText("UNDONE", button.pos.x + button.size.width / 2, button.pos.y + 46, UI.colors.text,
         { font = self.assets.fonts.medium, duration = 0.7, rise = 6 })
@@ -504,6 +518,7 @@ function GameView:onEndGame(didWin, gameState)
     if didWin then
         delay = 1.5
         self:after(0.35, function()
+            self.assets.audio:play("victory")
             self.effects:floatText("ESCAPED!", L.roomCenterX, L.roomY + 20, C.gold,
                 { font = self.assets.fonts.title, duration = 1.6, rise = 20 })
             for i = 1, 5 do
@@ -516,6 +531,7 @@ function GameView:onEndGame(didWin, gameState)
     else
         delay = 1.7
         self:after(0.3, function()
+            self.assets.audio:play("defeat")
             self:shake(10)
             self:flashScreen(C.damage, 0.7)
             for _, view in pairs(self.views) do
@@ -552,6 +568,7 @@ end
 function GameView:hurt(damage, x, y)
     local C = UI.colors
     self.sidebar:setLife(self.state.player.lifes)
+    self.assets.audio:play("hit", { volume = math.min(1, 0.55 + damage * 0.05), pitch = math.max(0.75, 1.1 - damage * 0.025) })
     self.effects:floatText("-" .. damage, x, y, C.damage)
     self.effects:burst(x, y, C.damage, 8 + damage, { speed = 70 + damage * 8 })
     local hx, hy = self.sidebar:healthAnchor()
@@ -605,6 +622,7 @@ function GameView:undo()
     end
     if not self.state.canUndo then
         self.undoButton.juice = Anim.newJuice(0.03, 0.06, 0.25)
+        self.assets.audio:play("denied")
         return
     end
     self.eventBus:publish("action", Actions.UndoAction:new())
@@ -775,6 +793,7 @@ function GameView:updateHover(mouseX, mouseY)
         self.tabReveal = 0
         if focusKey then
             self.views[focusKey]:juiceUp(0.06, 0.02)
+            self.assets.audio:play("hover", { pitch = 0.7, variation = 0.1 })
         end
     end
     self.focusKey = focusKey

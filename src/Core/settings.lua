@@ -11,8 +11,13 @@ Settings.__index = Settings
 
 local FILENAME = "settings.txt"
 
--- Order here is the order shown in the settings screen.
+local VOLUMES      = { 0, 0.25, 0.5, 0.75, 1 }
+local VOLUME_NAMES = { "Off", "25%", "50%", "75%", "100%" }
+
+-- Order here is the order shown in the settings screen. `default` falls back to the first value.
 Settings.OPTIONS = {
+    { key = "music",       label = "Music",           values = VOLUMES, names = VOLUME_NAMES, default = 0.5 },
+    { key = "sound",       label = "Sound effects",   values = VOLUMES, names = VOLUME_NAMES, default = 0.75 },
     { key = "fullscreen",  label = "Fullscreen",      values = { false, true },  names = { "Off", "On" } },
     { key = "crt",         label = "CRT effect",      values = { true, false },  names = { "On", "Off" } },
     { key = "screenShake", label = "Screen shake",    values = { true, false },  names = { "On", "Off" } },
@@ -24,7 +29,11 @@ Settings.OPTIONS = {
 
 local DEFAULTS = {}
 for _, option in ipairs(Settings.OPTIONS) do
-    DEFAULTS[option.key] = option.values[1]
+    if option.default ~= nil then
+        DEFAULTS[option.key] = option.default
+    else
+        DEFAULTS[option.key] = option.values[1]
+    end
 end
 
 function Settings:new(eventBus)

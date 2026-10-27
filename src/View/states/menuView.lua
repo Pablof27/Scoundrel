@@ -79,6 +79,7 @@ function MenuView:update(dt, hasFocus)
     for _, card in ipairs(self.cards) do
         if card == hovered and not card.hovered then
             card:juiceUp(0.08, 0.03)
+            self.assets.audio:play("hover", { pitch = 0.7, variation = 0.1 })
         end
         card.hovered = card == hovered
         card:update(dt, mouseX, mouseY)
@@ -159,6 +160,7 @@ function MenuView:onMouseClick(mouseX, mouseY, button)
     if card then
         card.faceUp = not card.faceUp
         card:juiceUp(0.2)
+        self.assets.audio:play("deal", { variation = 0.2 })
     end
 end
 

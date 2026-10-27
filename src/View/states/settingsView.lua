@@ -61,6 +61,7 @@ function SettingsView:change(index, dir)
     local key = Settings.OPTIONS[index].key
     self.settings:cycle(key, dir)
     self.juice[index] = Anim.newJuice(0.15, 0.03, 0.3)
+    self.assets.audio:play("toggle")
 end
 
 function SettingsView:update(dt, hasFocus)
@@ -128,8 +129,10 @@ function SettingsView:onKeyPressed(key)
         self.eventBus:publish("navigate", "back")
     elseif key == "up" then
         self.selected = (self.selected - 2) % #Settings.OPTIONS + 1
+        self.assets.audio:play("hover")
     elseif key == "down" then
         self.selected = self.selected % #Settings.OPTIONS + 1
+        self.assets.audio:play("hover")
     elseif key == "left" then
         self:change(self.selected, -1)
     elseif key == "right" then
