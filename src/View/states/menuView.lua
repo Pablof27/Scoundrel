@@ -124,7 +124,7 @@ function MenuView:render()
             { r = tilt, shadowDepth = 4 })
         x = x + letterW
     end
-    UI.textCentered("A roguelike dungeon crawl played with a deck of cards", W / 2, 118 + self.titleDrop * 0.5,
+    UI.textCentered("A solo roguelike card game by Zach Gage and Kurt Bieg", W / 2, 118 + self.titleDrop * 0.5,
         assets.fonts.small, UI.colors.text)
 
     local hovered = nil
