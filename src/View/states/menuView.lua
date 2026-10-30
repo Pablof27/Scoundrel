@@ -1,7 +1,8 @@
 --[[
     MenuView
-    Home screen: animated title, a fan of floating cards, the main navigation buttons and
-    the difficulty new runs will use.
+    Home screen of a game: animated title, a fan of floating cards, the main navigation buttons,
+    an optional tag under PLAY (e.g. Scoundrel's difficulty) and the game's records.
+    Everything game-specific comes from the game descriptor (see src/Games).
     Publishes "navigate" events; it knows nothing about the other screens.
 ]]
 
@@ -14,26 +15,21 @@ local UI       = require("src.View.ui")
 local MenuView = {}
 MenuView.__index = MenuView
 
-local TITLE = "SCOUNDREL"
--- suit, value: A of spades, K of clubs, 10 of diamonds, 7 of hearts, Q of spades
-local SHOWCASE = { { 3, 14 }, { 1, 13 }, { 2, 10 }, { 0, 7 }, { 3, 12 } }
 local BUTTONS = {
     { text = "PLAY",        color = "blue",   width = 110, target = "newGame" },
     { text = "HOW TO PLAY", color = "orange", width = 140, target = "rules" },
     { text = "SETTINGS",    color = "green",  width = 120, target = "settings" },
+    { text = "BACK",        color = "red",    width = 90,  target = "library" },
 }
--- A web page can't be closed by the game.
-if not Constants.IS_WEB then
-    table.insert(BUTTONS, { text = "QUIT", color = "red", width = 90, target = "quit" })
-end
 
-function MenuView:new(context)
+function MenuView:new(context, game)
     local o = setmetatable({}, self)
     o.assets        = context.assets
     o.eventBus      = context.eventBus
     o.settings      = context.settings
-    o.records       = context.records
+    o.records       = context.records[game.id]
     o.mouseProvider = context.mouseProvider
+    o.game          = game
     o.time          = 0
     o.titleDrop     = -90
     o.titleVel      = 0
@@ -41,8 +37,9 @@ function MenuView:new(context)
     o.buttons       = {}
 
     local W, H = o.assets.WIDTH, o.assets.HEIGHT
-    for i, spec in ipairs(SHOWCASE) do
-        local offset = i - (#SHOWCASE + 1) / 2
+    local showcase = game.showcase
+    for i, spec in ipairs(showcase) do
+        local offset = i - (#showcase + 1) / 2
         local x = W / 2 + offset * 64
         local view = CardView:new(Card:new(spec[1], spec[2]), o.assets, x, H + 120)
         view:setTarget(x, 206 + math.abs(offset) * 8, offset * 0.09)
@@ -113,19 +110,9 @@ function MenuView:render()
     local W, H = assets.WIDTH, assets.HEIGHT
     UI.renderBackground(assets)
 
-    local font = assets.fonts.title
-    local x = W / 2 - font:getWidth(TITLE) / 2
-    for i = 1, #TITLE do
-        local letter = TITLE:sub(i, i)
-        local letterW = font:getWidth(letter)
-        local wave = math.sin(self.time * 2 + i * 0.55) * 3
-        local tilt = math.sin(self.time * 1.3 + i) * 0.04
-        UI.textCentered(letter, x + letterW / 2, 70 + wave + self.titleDrop, font, UI.colors.text,
-            { r = tilt, shadowDepth = 4 })
-        x = x + letterW
-    end
-    UI.textCentered("A solo roguelike card game by Zach Gage and Kurt Bieg", W / 2, 118 + self.titleDrop * 0.5,
-        assets.fonts.small, UI.colors.text)
+    UI.wavyText(self.game.name, W / 2, 70 + self.titleDrop, assets.fonts.title, self.time,
+        { amplitude = 3, speed = 2, spacing = 0.55, tilt = 0.04, shadowDepth = 4 })
+    UI.textCentered(self.game.credits, W / 2, 118 + self.titleDrop * 0.5, assets.fonts.small, UI.colors.text)
 
     local hovered = nil
     for _, card in ipairs(self.cards) do
@@ -142,38 +129,26 @@ function MenuView:render()
     for _, button in ipairs(self.buttons) do
         button:render()
     end
-    self:renderDifficulty()
+    self:renderPlayTag()
 
-    UI.textCentered(self:recordsText(), W / 2, H - 28, assets.fonts.small, UI.colors.text, { alpha = 0.85 })
+    UI.textCentered(self.game.recordsText(self.records), W / 2, H - 28, assets.fonts.small, UI.colors.text,
+        { alpha = 0.85 })
 end
 
--- Tag under PLAY with the difficulty new runs will use (chosen in the settings).
-function MenuView:renderDifficulty()
+-- Tag under PLAY with the rules new games will use (e.g. Scoundrel's difficulty), if the game has one.
+function MenuView:renderPlayTag()
     local play = self.buttons[1]
-    if not play.visible then
+    local tag = self.game.playTag and self.game.playTag(self.settings)
+    if not play.visible or not tag then
         return
     end
-    local difficulty = Constants.DIFFICULTIES[self.settings:get("difficulty")] or
-        Constants.DIFFICULTIES[Constants.DEFAULT_DIFFICULTY]
     local font = self.assets.fonts.small
-    local label = difficulty.name:upper()
+    local label = tag.label:upper()
     local w, h = font:getWidth(label) + 12, 15
     local cx = play.pos.x + play.size.width / 2
     local y = play.pos.y + play.size.height + 9
-    UI.box(cx - w / 2, y, w, h, UI.colors[difficulty.color], { radius = 4, depth = 2 })
+    UI.box(cx - w / 2, y, w, h, UI.colors[tag.color], { radius = 4, depth = 2 })
     UI.textCentered(label, cx, y + h / 2, font, UI.colors.text)
-end
-
-function MenuView:recordsText()
-    local played = self.records:get("gamesPlayed")
-    if played == 0 then
-        return "Survive the 44-card dungeon. Good luck, scoundrel."
-    end
-    local text = "Runs " .. played .. "     Escaped " .. self.records:get("gamesWon")
-    if self.records:get("hasBestScore") then
-        text = text .. "     Best score " .. self.records:get("bestScore")
-    end
-    return text
 end
 
 function MenuView:onMouseClick(mouseX, mouseY, button)
@@ -193,8 +168,8 @@ end
 function MenuView:onKeyPressed(key)
     if key == "return" or key == "space" then
         self.eventBus:publish("navigate", "newGame")
-    elseif key == "escape" and not Constants.IS_WEB then
-        self.eventBus:publish("navigate", "quit")
+    elseif key == "escape" then
+        self.eventBus:publish("navigate", "library")
     end
 end
 

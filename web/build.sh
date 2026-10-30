@@ -16,7 +16,7 @@ zip -9 -q -r "$TMP/game.love" main.lua lib src resources shaders -x '*.DS_Store'
 rm -rf "$OUT"
 # Compatibility mode: the default build needs SharedArrayBuffer, which needs COOP/COEP headers that
 # GitHub Pages can't send. The cost is that love.thread is unavailable (see src/Core/audio.lua).
-npx --yes "$LOVEJS" --title Scoundrel --compatibility "$TMP/game.love" "$OUT"
+npx --yes "$LOVEJS" --title "Table for One" --compatibility "$TMP/game.love" "$OUT"
 
 # Our page replaces the love.js one. Each build gets its own file URLs, so browsers never mix
 # files cached from a previous deploy with the new ones.

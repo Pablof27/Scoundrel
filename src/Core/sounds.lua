@@ -115,6 +115,36 @@ local RECIPES = {
         end
     end },
 
+    -- Shuffling the deck: a riffle of card flicks, then the deck is squared up.
+    shuffle = { duration = 0.7, peak = 0.35, build = function(b)
+        local random = love.math.newRandomGenerator(11)
+        for i = 0, 17 do
+            noise(b, { at = i * 0.028 + random:random() * 0.006, duration = 0.025, filter = "bandpass",
+                cutoff = 2200 + random:random() * 1500, resonance = 0.3, attack = 0.002, decay = 0.008,
+                volume = 0.6 + random:random() * 0.4, seed = i + 1 })
+        end
+        noise(b, { at = 0.55, duration = 0.1, filter = "lowpass", cutoff = 900, decay = 0.03, volume = 0.7 })
+        tone(b, { at = 0.55, duration = 0.1, freq = 150, slide = 90, decay = 0.03, volume = 0.5 })
+    end },
+
+    -- Capturing cards: a crisp snap with a low thump.
+    capture = { duration = 0.35, peak = 0.5, build = function(b)
+        noise(b, { duration = 0.05, filter = "highpass", cutoff = 2500, decay = 0.012, volume = 0.9 })
+        tone(b, { duration = 0.3, freq = 220, slide = 110, wave = "triangle", decay = 0.07, volume = 0.8 })
+        tone(b, { at = 0.02, duration = 0.25, freq = 880, slide = 1320, wave = "square", duty = 0.25,
+            lowpass = 3000, decay = 0.05, volume = 0.25 })
+    end },
+
+    -- The wolf feeds: a short howl rising and falling.
+    howl = { duration = 1.2, peak = 0.4, build = function(b)
+        tone(b, { duration = 0.4, freq = 300, slide = 500, wave = "triangle", lowpass = 1800, attack = 0.15,
+            release = 0.05, vibrato = 0.15, vibratoRate = 6, volume = 0.8 })
+        tone(b, { at = 0.38, duration = 0.8, freq = 500, slide = 280, wave = "triangle", lowpass = 1800,
+            attack = 0.03, release = 0.45, vibrato = 0.3, vibratoRate = 6, volume = 0.8 })
+        noise(b, { duration = 1.1, filter = "bandpass", cutoff = 500, sweep = 900, resonance = 0.5,
+            attack = 0.2, release = 0.5, volume = 0.12 })
+    end },
+
     -- Escaped the dungeon: short fanfare resolving on A major.
     victory = { duration = 1.9, peak = 0.6, build = function(b)
         for i, note in ipairs({ 69, 73, 76 }) do

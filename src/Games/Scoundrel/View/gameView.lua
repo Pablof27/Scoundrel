@@ -1,5 +1,5 @@
 --[[
-    GameView
+    Scoundrel GameView
     Main gameplay screen.
     - Keeps one CardView per card and reconciles them with the GameState after every event
       (room slots, weapon, slain stack, deck), so every change - undo included - is animated.
@@ -8,22 +8,21 @@
     - Once a single card is left the next room is dealt automatically.
 ]]
 
-local CardView    = require("src.View.cardView")
+local BoardView   = require("src.View.boardView")
 local DeckView    = require("src.View.deckView")
-local SidebarView = require("src.View.sidebarView")
 local Button      = require("src.View.buttonView")
-local Effects     = require("src.View.effects")
 local Anim        = require("src.View.anim")
 local UI          = require("src.View.ui")
-local Actions     = require("src.Controller.playerAction")
-local Timer       = require("lib.timer")
+local Config      = require("src.Games.Scoundrel.config")
+local GameState   = require("src.Games.Scoundrel.Model.gameState")
+local SidebarView = require("src.Games.Scoundrel.View.sidebarView")
+local Actions     = require("src.Games.Scoundrel.Controller.actions")
 
-local GameView = {}
-GameView.__index = GameView
+local GameView = BoardView.extend()
 
-local CARDS_PER_ROOM = Constants.CARDS_PER_ROOM
-local ROOM_SPACING   = Constants.ROOM_SPACING
-local STACK_SPACING  = Constants.STACK_SPACING
+local CARDS_PER_ROOM = Config.CARDS_PER_ROOM
+local ROOM_SPACING   = Config.ROOM_SPACING
+local STACK_SPACING  = Config.STACK_SPACING
 local SIDEBAR_WIDTH  = Constants.SIDEBAR_WIDTH
 local SAFE_X, SAFE_Y = Constants.SAFE_X, Constants.SAFE_Y
 
@@ -42,53 +41,22 @@ local function reachLabel(player, value)
     return (player.weaponSlaysEqual and "up to " or "below ") .. UI.valueLabel(value)
 end
 
--- Screen-edge glow used for damage/heal flashes.
-local function newVignetteMesh(width, height, inset)
-    local outer, inner = { 1, 1, 1, 1 }, { 1, 1, 1, 0 }
-    local function vertex(x, y, color)
-        return { x, y, 0, 0, color[1], color[2], color[3], color[4] }
-    end
-    local mesh = love.graphics.newMesh({
-        vertex(0, 0, outer), vertex(width, 0, outer), vertex(width, height, outer), vertex(0, height, outer),
-        vertex(inset, inset, inner), vertex(width - inset, inset, inner),
-        vertex(width - inset, height - inset, inner), vertex(inset, height - inset, inner),
-    }, "triangles", "static")
-    mesh:setVertexMap(1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7, 6, 3, 4, 8, 3, 8, 7, 4, 1, 5, 4, 5, 8)
-    return mesh
-end
-
 function GameView:new(context, gameState)
     local o = setmetatable({}, self)
-    o.assets        = context.assets
-    o.eventBus      = context.eventBus
-    o.settings      = context.settings
-    o.mouseProvider = context.mouseProvider
+    BoardView.init(o, context)
     o.state         = gameState
-    o.views         = {}  -- card.position -> CardView (kept for the whole run so undo can revive cards)
     o.slots         = {}  -- room slot index -> card.position
-    o.viewCount     = 0
-    o.timers        = {}
-    o.subscriptions = {}
-    o.effects       = Effects:new(o.assets)
-    o.lock          = 0
-    o.bannerTime    = 0
     o.advanceToken  = nil  -- pending automatic next room
     o.playToken     = nil  -- delayed feedback of the last card played
     o.focusKey      = nil
     o.hoverTab      = nil
     o.tabReveal     = 0
-    o.shakeAmount   = 0
-    o.vignette      = 0
-    o.vignetteColor = UI.colors.damage
-    o.runTime       = 0
-    o.over          = false
 
     o:computeLayout()
     local L = o.layout
     o.deck = DeckView:new(o.assets, L.deckX, L.roomY)
     o.deck:setCount(#gameState.drawPile.cards)
     o.sidebar = SidebarView:new(o.assets, L.sidebar.x, L.sidebar.y, L.sidebar.w, L.sidebar.h, gameState.player.lifes)
-    o.vignetteMesh = newVignetteMesh(o.assets.WIDTH, o.assets.HEIGHT, 70)
     o:createButtons()
     o:subscribe()
 
@@ -169,39 +137,15 @@ function GameView:createButtons()
 end
 
 function GameView:subscribe()
-    local function on(event, handler)
-        table.insert(self.subscriptions, { event = event, callback = self.eventBus:subscribe(event, handler) })
-    end
-    on("cardPlayed", function(gameState, outcome) self:onCardPlayed(gameState, outcome) end)
-    on("roomChanged", function(gameState, reason) self:onRoomChanged(gameState, reason) end)
-    on("stateRestored", function(gameState) self:onStateRestored(gameState) end)
-    on("endGame", function(didWin, gameState) self:onEndGame(didWin, gameState) end)
-end
-
-function GameView:destroy()
-    for _, subscription in ipairs(self.subscriptions) do
-        self.eventBus:unsubscribe(subscription.event, subscription.callback)
-    end
-    self.subscriptions = {}
-    self.timers = {}
-end
-
--- Delayed callback owned by this view: it dies with the view.
-function GameView:after(delay, callback)
-    Timer.after(delay, callback):group(self.timers)
+    self:on("cardPlayed", function(gameState, outcome) self:onCardPlayed(gameState, outcome) end)
+    self:on("roomChanged", function(gameState, reason) self:onRoomChanged(gameState, reason) end)
+    self:on("stateRestored", function(gameState) self:onStateRestored(gameState) end)
+    self:on("endGame", function(didWin, gameState) self:onEndGame(didWin, gameState) end)
 end
 
 ------------------------------------------------------------------------
 -- Reconciliation: model -> card views
 ------------------------------------------------------------------------
-
-function GameView:createView(card)
-    local view = CardView:new(card, self.assets, 0, 0)
-    self.viewCount = self.viewCount + 1
-    view.order = self.viewCount
-    self.views[card.position] = view
-    return view
-end
 
 function GameView:findRoomCard(key)
     for _, card in ipairs(self.state.room.cards) do
@@ -244,29 +188,6 @@ function GameView:assignSlots(roomCards)
             assigned[key] = true
         end
     end
-end
-
-function GameView:revive(view)
-    view.exitToken = nil
-    view.exitKind = nil
-    view.faceUp = true
-    view:restore()
-    view:juiceUp(0.2)
-end
-
-function GameView:placeCard(card, zone, x, y, r, present)
-    local view = self.views[card.position]
-    if not view then
-        view = self:createView(card)
-        view:snapTo(x, y, r)
-    elseif view.zone == "gone" or view.zone == "exiting" then
-        self:revive(view)
-    end
-    view.card = card
-    view.zone = zone
-    view:setTarget(x, y, r)
-    present[card.position] = true
-    return view
 end
 
 --[[
@@ -497,7 +418,7 @@ function GameView:onRoomChanged(gameState, reason)
     self.lock = dealDelay + dealt * DEAL_INTERVAL + 0.25
 
     local label = reason == "flee" and "FLED!" or ("ROOM " .. gameState.roomNumber)
-    self:showBanner(label, UI.colors.gold, dealDelay)
+    self:showBanner(label, UI.colors.gold, self.layout.roomCenterX, self.layout.hintY + 12, dealDelay)
     self:after(dealDelay, function() self.assets.audio:play("room") end)
 end
 
@@ -582,26 +503,6 @@ function GameView:hurt(damage, x, y)
     self:flashScreen(C.damage, math.min(0.5, 0.15 + damage * 0.025))
 end
 
-function GameView:shake(amount)
-    if self.settings:get("screenShake") then
-        self.shakeAmount = math.max(self.shakeAmount, amount)
-    end
-end
-
-function GameView:flashScreen(color, amount)
-    self.vignetteColor = color
-    self.vignette = math.max(self.vignette, amount)
-end
-
--- Short label popping over the hint line (which is hidden meanwhile).
-function GameView:showBanner(text, color, delay)
-    local L = self.layout
-    local duration = 0.8
-    self.effects:floatText(text, L.roomCenterX, L.hintY + 12, color,
-        { font = self.assets.fonts.big, delay = delay, duration = duration, rise = 12 })
-    self.bannerTime = delay + duration
-end
-
 function GameView:weaponView()
     local armor = self.state.player.armor
     return armor and armor.card and self.views[armor.card.position]
@@ -645,7 +546,7 @@ function GameView:actionsFor(card)
     local function damageLabel(damage)
         return damage > 0 and ("-" .. damage) or "0"
     end
-    if card:isMonster() then
+    if GameState.isMonster(card) then
         local actions = {}
         local withWeapon = state:previewCard(card, true)
         if withWeapon.usedWeapon then
@@ -731,16 +632,9 @@ end
 ------------------------------------------------------------------------
 
 function GameView:update(dt, hasFocus)
-    if hasFocus then
-        -- Game flow (auto-advance, delayed effects) pauses while an overlay is open;
-        -- the cards keep their idle animation.
-        if not self.over then
-            self.runTime = self.runTime + love.timer.getDelta()
-        end
-        Timer.update(dt, self.timers)
-        self.lock = math.max(0, self.lock - dt)
-        self.bannerTime = math.max(0, self.bannerTime - dt)
-    end
+    -- Game flow (auto-advance, delayed effects) pauses while an overlay is open;
+    -- the cards keep their idle animation.
+    self:updateClock(dt, hasFocus)
 
     local mouseX, mouseY = self.mouseProvider()
     if not hasFocus then
@@ -767,9 +661,7 @@ function GameView:update(dt, hasFocus)
     self.fleeButton.disabled = self.over or not self.state:canSkipRoom()
     self.undoButton.disabled = self.over or not self.state.canUndo
 
-    self.effects:update(dt)
-    self.shakeAmount = Anim.approach(self.shakeAmount, 0, 7, dt)
-    self.vignette = Anim.approach(self.vignette, 0, 3, dt)
+    self:updateFeedback(dt)
     self.tabReveal = Anim.moveTowards(self.tabReveal, (self.focusKey and not self:isBusy()) and 1 or 0, dt * 8)
 end
 
@@ -847,14 +739,7 @@ end
 ------------------------------------------------------------------------
 
 function GameView:render()
-    UI.renderBackground(self.assets)
-
-    love.graphics.push()
-    if self.shakeAmount > 0.05 then
-        local t = love.timer.getTime() * 30
-        love.graphics.translate((love.math.noise(t, 0) - 0.5) * 2 * self.shakeAmount,
-            (love.math.noise(0, t) - 0.5) * 2 * self.shakeAmount)
-    end
+    self:beginRender()
 
     self.sidebar:render(self.state, self.runTime)
     self:renderSlots()
@@ -874,13 +759,8 @@ function GameView:render()
     for _, b in ipairs(self.buttons) do
         b:render()
     end
-    self.effects:draw()
-    love.graphics.pop()
 
-    if self.vignette > 0.01 then
-        UI.setColor(self.vignetteColor, self.vignette)
-        love.graphics.draw(self.vignetteMesh)
-    end
+    self:endRender()
 end
 
 function GameView:layerOf(view)
@@ -914,13 +794,7 @@ function GameView:drawList(deckBound)
             table.insert(list, view)
         end
     end
-    table.sort(list, function(a, b)
-        if a.layer ~= b.layer then
-            return a.layer < b.layer
-        end
-        return a.order < b.order
-    end)
-    return list
+    return BoardView.sortByLayer(list)
 end
 
 function GameView:renderSlots()
@@ -944,7 +818,7 @@ function GameView:renderWeaponZone()
     local infoY = L.weaponY + L.cardH / 2 + 8
 
     local focus = self.focusKey and self.views[self.focusKey]
-    if focus and focus.card:isMonster() and player:hasArmor() and not self:isBusy() then
+    if focus and GameState.isMonster(focus.card) and player:hasArmor() and not self:isBusy() then
         local usable = player:canUseArmor(focus.card)
         local label = usable and "can slay this monster" or "is too weak for this monster"
         UI.text(label, zone.x + 58, zone.y + 8, fonts.tiny, usable and C.heal or C.damage)

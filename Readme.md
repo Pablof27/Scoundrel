@@ -1,30 +1,49 @@
-# Scoundrel
+# Table for One
 
-A single-player roguelike card game built with [LÖVE2D](https://love2d.org/) and Lua. Based on the solo card game *Scoundrel*, where you navigate a dungeon represented by a standard deck of playing cards.
+A library of single-player card games built with [LÖVE2D](https://love2d.org/) and Lua. Every game runs on the same card engine: Balatro-style card animations, procedurally generated audio, menus, tutorials, settings and records. The library currently has:
+
+- **[Scoundrel](#scoundrel)**: the solo roguelike card game by Zach Gage and Kurt Bieg. Make it through a dungeon made from a deck of playing cards.
+- **[Lobo (The Wolf)](#lobo-the-wolf)**: the solitaire game by James Ernest (Crab Fragment Labs). Capture the Wolf's cards with yours, hand after hand, and race the Wolf to 100 points.
 
 **[Play it in your browser](https://pablof27.github.io/Scoundrel/)**
 
 ## Features
 
-- Three difficulty levels (**Easy**, **Normal**, **Difficult**), chosen in Settings and applied to every new run
-- Home screen with an illustrated **How to Play** tutorial and **Settings** (difficulty, music and sound volume, fullscreen, CRT effect, screen shake, animation speed, card back, FPS counter) saved between sessions
-- Procedurally generated audio: a looping dungeon soundtrack and every sound effect are synthesized in code at startup (no audio files)
+**Library**
+
+- A game selection screen, then a home screen per game with an illustrated **How to Play** tutorial and its records
+- **Settings** saved between sessions: each game's own options (Scoundrel's difficulty, Lobo's match length) plus the general ones (music and sound volume, fullscreen, CRT effect, screen shake, animation speed, card back, FPS counter)
+- Procedurally generated audio: a looping soundtrack and every sound effect are synthesized in code at startup (no audio files)
 - Balatro-style card feel: spring physics, "juice" pops, idle sway, 3D tilt towards the mouse, dealing/flipping/burning animations, particles and screen shake
+- Pixel art card sprites, GLSL shaders (card tilt + dissolve, animated background, CRT post-processing)
+- Event-driven MVC architecture with an EventBus, where each game is a plug-in module (see [Adding a game](#adding-a-game))
+
+**Scoundrel**
+
+- Three difficulty levels (**Easy**, **Normal**, **Difficult**), chosen in Settings and applied to every new run
 - One-click play with previews: hovering a card shows exactly what it will do (damage, healing, weapon reach) on the card's action tabs, in the health bar and in a hint line
 - Explicit **WEAPON** / **FISTS** choice for monsters, a **FLEE** button that explains why it is unavailable, and the next room is dealt automatically
 - Run stats panel (health, room, cards left, time, difficulty, monsters and bosses slain, damage taken/blocked, potions, weapons, rooms fled)
 - End-of-run summary with the official Scoundrel scoring and your personal best (set by Difficult runs)
 - Undo for the cards resolved in the current room
-- Pixel art card sprites, GLSL shaders (card tilt + dissolve, animated background, CRT post-processing)
-- Event-driven MVC architecture with an EventBus
+
+**Lobo**
+
+- Select a capture by clicking cards of both hands: its name (**PERFECT**, **SUM**, **SPLIT**, **OVER**) and its exact consequence show before you play it, including when it would win the hand or leave you without a capture
+- Cards that can't be part of a capture with your selection are dimmed
+- The cub (the face-up top card of the deck) is always visible, and the sidebar counts the cards of each value still hidden in the deck
+- Match panel racing to 100 (or 50) points, a ledger of every hand, and an end-of-match summary with your statistics
+- **FOLD** asks for a second click, so a misclick never gives a hand away
 
 ## How to Play
+
+### Scoundrel
 
 **Goal:** Make it through the dungeon before your health (20) reaches 0. On **Difficult** you must resolve every card; on **Easy** and **Normal** you escape once the dungeon can't fill another room (see [Difficulty](#difficulty)).
 
 **Rooms:** Each room deals 4 cards. Resolve 3 of them in any order — the 4th stays and becomes part of the next room, which is dealt automatically. On Difficult, in the final room (empty dungeon) every remaining card must be resolved.
 
-### Card Types
+#### Card Types
 
 | Suit | Role | Effect |
 |------|------|--------|
@@ -34,17 +53,17 @@ A single-player roguelike card game built with [LÖVE2D](https://love2d.org/) an
 
 The dungeon has 44 cards: every club and spade, plus hearts and diamonds from 2 to 10.
 
-### Combat
+#### Combat
 
 - **Barehanded (FISTS):** Take the monster's full value as damage.
 - **With a weapon:** Take `max(0, monster − weapon)` damage. The monster is stacked on the weapon.
 - **Weapon reach:** Once a weapon has slain a monster, it can only be used against monsters weaker than the last one it slew (on Easy, also as strong as it). You can always fight barehanded to keep the weapon fresh.
 
-### Flee
+#### Flee
 
 Before resolving any card of a room you may flee: its 4 cards go to the bottom of the dungeon and a new room is dealt. You cannot flee two rooms in a row.
 
-### Difficulty
+#### Difficulty
 
 Choose it in **Settings**; it applies from the next run (the sidebar and the end-of-run summary show the difficulty of the current one).
 
@@ -56,13 +75,45 @@ Choose it in **Settings**; it applies from the next run (the sidebar and the end
 
 With the 44-card dungeon, Easy and Normal runs end with one card left in the room and one in the dungeon.
 
-### Score
+#### Score
 
 - **Escaped:** your remaining health (plus the potion's value if your last card was a potion drunk at full health).
 - **Died:** your health minus the value of every monster left in the dungeon.
 - Only **Difficult** runs can set a new best score; every run counts towards runs played and escapes.
 
+### Lobo (The Wolf)
+
+**Goal:** Empty the Wolf's hand by capturing its cards with yours. When you can't, lose as little as possible: the Wolf scores the cards left in its hand.
+
+**The deck:** 50 cards, aces (worth 1) to 10 in five suits. Suits don't matter. The fifth suit, gold spades, stands in for the fifth suit of the Postas deck the game was designed for. Each hand deals four cards to the Wolf (top row) and four to you (bottom row). The top card of the deck, **the cub**, is always face up; the cards below it are unknown.
+
+#### Captures
+
+Only you take turns. Each turn you play one of these captures:
+
+| Capture | You play | It takes | Then |
+|---------|----------|----------|------|
+| **Perfect** | one card | a Wolf card of the same value (9 takes 9) | you take the cub |
+| **Sum** | two or more cards | one Wolf card equal to their total (6 + 4 takes 10) | you take the cub |
+| **Split** | one card | two or more Wolf cards adding up to it (9 takes 6 + 3) | the Wolf takes the cub |
+| **Over** | one card | one smaller Wolf card (9 takes 7) | the Wolf takes one card per point of difference: the cub, then unknown cards |
+
+All the cards involved go to the discard pile.
+
+#### End of a hand
+
+- **The Wolf runs out of cards:** you win the hand and score the cards left in your hand, including the card you drew after your final capture.
+- **You fold, or have no capture left:** the Wolf scores the cards left in its hand. Folding early can keep that score low: *the wolf takes small bites*.
+
+Hands are played until you or the Wolf reach **100 points** (or 50, chosen in Settings as the match length).
+
+#### Shuffling
+
+As in the house rules, the deck is only shuffled every third hand (or when it can't deal a hand), so the cards already played tell you what is left: the sidebar counts them for you. If the deck runs out during a hand, the discard pile is shuffled into a new deck.
+
 ## Controls
+
+### Scoundrel
 
 | Input | Action |
 |-------|--------|
@@ -72,7 +123,21 @@ With the 44-card dungeon, Easy and Normal runs end with one card left in the roo
 | Right-click a monster | Fight it barehanded |
 | `FLEE` button | Skip the current room |
 | `UNDO` button, `U`, `Backspace`, `Ctrl/Cmd+Z` | Undo the last card resolved in this room |
-| `Escape` | Pause menu (quits from the home screen) |
+| `Escape` | Pause menu |
+
+### Lobo
+
+| Input | Action |
+|-------|--------|
+| Click a card (either row) | Add it to, or remove it from, the selected capture |
+| Right-click, `Backspace` | Clear the selection |
+| `CAPTURE` button, `Enter`, `Space` | Play the selected capture |
+| `FOLD` button (twice) | End the hand: the Wolf scores its cards |
+| `NEXT HAND` button, `Enter`, `Space` | Deal the next hand |
+| Hover the deck, the piles or the sidebar | Explanations in the panel between the piles |
+| `Escape` | Pause menu |
+
+On the library screen, `Left`/`Right` and `Enter` pick a game. `Escape` goes back from a game's home screen to the library, and quits from the library.
 
 ## Getting Started
 
@@ -113,47 +178,60 @@ The web version uses love.js's compatibility mode, because GitHub Pages can't se
 ## Project Structure
 
 ```
-main.lua                  — Composition root, wires all modules and resolves screen navigation
+main.lua                  — Composition root: wires all modules, resolves screen navigation, tracks the game played
 src/
-  Core/
-    AssetManager.lua      — Asset loading (textures, baked card atlas, fonts, shaders, audio)
+  Core/                   — Engine services shared by every game
+    AssetManager.lua      — Asset loading (textures, baked card atlas with five suits, fonts, shaders, audio)
     font.lua              — Fonts rasterized at the screen's pixel density, so text stays sharp at any size
     audio.lua             — Plays sound effects and the music loop at the chosen volumes
     synth.lua             — Tiny offline synthesizer (oscillators, filtered noise, echo)
     sounds.lua            — Sound effect recipes
     music.lua             — Music loop composition (rendered in a background thread)
     EventBus.lua          — Publish/subscribe event system
-    constants.lua         — Game configuration values (including the difficulty levels and their rules)
-    settings.lua          — User preferences, including the difficulty (persisted)
-    records.lua           — Lifetime records: runs, wins, best score of Difficult runs (persisted)
+    constants.lua         — Configuration shared by the games (library title, display, layout)
+    settings.lua          — User preferences: general options plus the options each game declares (persisted)
+    records.lua           — Lifetime records of one game, in its own file (persisted)
     storage.lua           — Safe key/value persistence in the save directory
     utils.lua             — Utility functions
   Controller/
-    game.lua              — Game controller, processes actions via EventBus, undo history
-    playerAction.lua      — Action definitions (Play, Skip, Next, Undo)
+    game.lua              — Runs the state of the game being played: actions, undo history, end detection
+    action.lua            — Base class of the games' actions (and the Undo action)
     stateStack.lua        — Screen/overlay stack manager
   Model/
-    card.lua              — Card (suit + value)
-    deck.lua              — Deck of 44 cards with shuffle/draw
-    gameState.lua         — Core rules (per difficulty), previews, run stats and scoring
-    player.lua            — Player health and weapon
-    room.lua              — Current room of 4 cards
+    card.lua              — Card (suit, printed rank and game value)
+    deck.lua              — Pile of cards with shuffle/draw
   View/
     anim.lua              — Springs, juice and easing helpers
-    ui.lua                — Palette and drawing helpers (boxes, text, icons)
+    ui.lua                — Palette and drawing helpers (boxes, text, wavy titles, icons)
     effects.lua           — Floating texts and particle bursts
     buttonView.lua        — Clickable UI button
     cardView.lua          — Animated card sprite (springs, tilt, flip, dissolve)
-    deckView.lua          — Dungeon pile rendering
-    sidebarView.lua       — Health and run stats panel
+    deckView.lua          — Draw pile rendering
+    boardView.lua         — Base of the game boards (card views, timers, subscriptions, shake, screen flash)
     states/
-      menuView.lua        — Home screen
-      gameView.lua        — Main gameplay screen
+      libraryView.lua     — Game selection screen (first screen)
+      menuView.lua        — Home screen of a game
       pauseView.lua       — In-game menu overlay
-      rulesView.lua       — How to Play tutorial
+      rulesView.lua       — How to Play tutorial (pages given by the game)
       settingsView.lua    — Settings overlay
-      endGameView.lua     — End-of-run summary
+      endGameView.lua     — End-of-game summary (content given by the game)
       transitionView.lua  — Fade transition overlay
+  Games/
+    init.lua              — The games of the library, and the fields every game describes itself with
+    Scoundrel/
+      init.lua            — Game descriptor (options, records, end-of-run summary...)
+      config.lua          — Rule values and difficulty levels
+      rules.lua           — How to Play pages
+      Model/              — gameState.lua (rules, previews, stats, scoring), player.lua, room.lua
+      Controller/         — actions.lua (Play, Flee, Next room)
+      View/               — gameView.lua (board), sidebarView.lua (health and run stats)
+    Lobo/
+      init.lua            — Game descriptor (options, records, end-of-match summary...)
+      config.lua          — Deck, dealing and match rules
+      rules.lua           — How to Play pages
+      Model/              — gameState.lua (match, hands, cub, shuffling, scoring), plays.lua (captures)
+      Controller/         — actions.lua (Capture, Fold, Next hand)
+      View/               — gameView.lua (table), sidebarView.lua (match, deck tracker, ledger)
 lib/
   push.lua                — Resolution-independent rendering (modified to render at the screen's pixel density)
   timer.lua               — Tweens and timers
@@ -174,7 +252,13 @@ The codebase follows an **MVC** pattern with event-driven communication:
 - **View** — Renders state and publishes user actions to the EventBus.
 - **Controller** — Subscribes to actions, updates the Model, and publishes state-change events back to Views.
 
-All modules are wired together in `main.lua` (the composition root). See [documentation.md](documentation.md) for a detailed architectural breakdown.
+All modules are wired together in `main.lua` (the composition root). The engine (`src/Core`, `src/Controller`, `src/Model`, `src/View`) knows nothing about any particular game: each game lives in `src/Games/<Name>/` with its own model, actions and board, and describes itself to the shared screens through its `init.lua`. See [documentation.md](documentation.md) for a detailed architectural breakdown.
+
+### Adding a game
+
+1. Create `src/Games/<Name>/` with its state (`isOver()`, `isVictory()`, `canUndo`), its actions (`Action.extend`, see `src/Controller/action.lua`) and a board view built on `BoardView`.
+2. Write its `init.lua` descriptor (fields documented in `src/Games/init.lua`): name, showcase cards, tutorial pages, options, records, and the functions that create its state and board and summarize a finished game.
+3. List it in `src/Games/init.lua`. It then appears in the library with its home screen, tutorial, settings, pause menu and end screen.
 
 ## Built With
 

@@ -1,16 +1,17 @@
 --[[
-    SidebarView
+    Scoundrel SidebarView
     Left info panel: health (with a live preview of the hovered action), room info,
     potion availability and the statistics (and difficulty) of the current run.
 ]]
 
-local Anim = require("src.View.anim")
-local UI   = require("src.View.ui")
+local Anim   = require("src.View.anim")
+local UI     = require("src.View.ui")
+local Config = require("src.Games.Scoundrel.config")
 
 local SidebarView = {}
 SidebarView.__index = SidebarView
 
-local MAX_LIFES = Constants.MAX_LIFES
+local MAX_LIFES = Config.MAX_LIFES
 
 SidebarView.STAT_ROWS = {
     { key = "cardsPlayed",     label = "Cards played" },
@@ -143,16 +144,8 @@ function SidebarView:renderDifficulty(difficulty, right, y)
 end
 
 function SidebarView:renderTitle(cx, cy)
-    local font = self.assets.fonts.big
-    local title = "SCOUNDREL"
-    local x = cx - font:getWidth(title) / 2
-    for i = 1, #title do
-        local letter = title:sub(i, i)
-        local letterW = font:getWidth(letter)
-        local wobble = math.sin(self.time * 2.2 + i * 0.6) * 1.2
-        UI.textCentered(letter, x + letterW / 2, cy + wobble, font, UI.colors.text, { shadowDepth = 2 })
-        x = x + letterW
-    end
+    UI.wavyText("SCOUNDREL", cx, cy, self.assets.fonts.big, self.time,
+        { amplitude = 1.2, speed = 2.2, spacing = 0.6, shadowDepth = 2 })
 end
 
 function SidebarView:renderHealth(x, y, w, h)

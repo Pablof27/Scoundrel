@@ -1,11 +1,13 @@
 --[[
     Game (Controller)
-    Orchestrates game actions and undo history.
-    Subscribes to events from the EventBus and publishes state-change events.
-    Owns end-game detection (moved out of GameState).
-]]
+    Runs the state of the game being played, whatever the game: performs the actions published
+    on the EventBus, keeps the undo history and detects the end of the game.
 
-local GameState = require("src.Model.gameState")
+    A game state provides:
+      isOver(), isVictory()  end of the game, queried after every action
+      canUndo                whether the last action can be taken back right now
+      errorMsg               set by actions that fail, for the log
+]]
 
 local Game = {}
 Game.__index = Game
@@ -23,14 +25,14 @@ function Game:new(eventBus)
     return o
 end
 
--- difficulty: key of one of Constants.DIFFICULTIES.
-function Game:start(difficulty)
-    self.gameState = GameState:new(difficulty)
+function Game:start(gameState)
+    self.gameState = gameState
     self.history = {}
 end
 
 function Game:perform(action)
-    if self.gameState == nil or self.gameState:isOver() then
+    local state = self.gameState
+    if state == nil or state:isOver() then
         return
     end
     if action.isUndo then
@@ -38,19 +40,20 @@ function Game:perform(action)
         return
     end
 
-    local snapshot = DeepCopy(self.gameState)
-    if not self.gameState:nextState(action) then
+    local snapshot = action.undoable and DeepCopy(state) or nil
+    state.errorMsg = nil
+    if not action:execute(state) then
+        print("Action could not be executed: " .. tostring(state.errorMsg))
         return
     end
 
-    if action.eventType == "roomChanged" then
-        -- Undo never crosses into a previous room, so older snapshots are useless.
-        self.history = {}
-        self.eventBus:publish("roomChanged", self.gameState, action.reason)
-    else
+    if snapshot then
         table.insert(self.history, snapshot)
-        self.eventBus:publish("cardPlayed", self.gameState, self.gameState.lastOutcome)
+    else
+        -- Undo never crosses an action that can't be undone, so older snapshots are useless.
+        self.history = {}
     end
+    self.eventBus:publish(action.eventType, state, action:outcome(state))
 
     self:checkEndGame()
 end

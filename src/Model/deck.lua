@@ -1,36 +1,24 @@
 --[[
     Deck
-    A shuffled deck of cards. Handles drawing and re-inserting cards.
+    A pile of cards, top first. Each game builds the cards it plays with.
 ]]
-
-local Card = require("src.Model.card")
 
 local Deck = {}
 Deck.__index = Deck
 
-local suits = {
-    heart   = 0,
-    club    = 1,
-    diamond = 2,
-    spade   = 3
-}
-
-function Deck:new()
+-- cards: list of Card, top first (not shuffled).
+function Deck:new(cards)
     local o = setmetatable({}, self)
-    o.cards = {}
-    for i = 0, 3 do
-        -- Hearts and diamonds have no face cards or aces.
-        local highest = (i == suits.heart or i == suits.diamond) and 10 or 14
-        for value = 2, highest do
-            table.insert(o.cards, Card:new(i, value))
-        end
-    end
-    o:shuffle()
+    o.cards = cards or {}
     return o
 end
 
 function Deck:shuffle()
     table.shuffle(self.cards)
+end
+
+function Deck:top()
+    return self.cards[1]
 end
 
 function Deck:drawCards(n)

@@ -1,11 +1,11 @@
 --[[
     SettingsView
-    Overlay listing every user preference. Click a value (or use the arrow keys) to change it.
-    Values are applied and saved immediately through Settings. Options with `details` (difficulty)
-    explain their current value in a note next to the panel.
+    Overlay listing the user preferences: the options of the game it was opened from (if any),
+    then the general ones. Click a value (or use the arrow keys) to change it.
+    Values are applied and saved immediately through Settings. Options with `details` (e.g. Scoundrel's
+    difficulty) explain their current value in a note next to the panel.
 ]]
 
-local Settings = require("src.Core.settings")
 local Button   = require("src.View.buttonView")
 local Anim     = require("src.View.anim")
 local UI       = require("src.View.ui")
@@ -18,18 +18,20 @@ local ROW_H = 28
 local VALUE_W = 128
 local DETAILS_W, DETAILS_GAP = 148, 8
 
-function SettingsView:new(context)
+-- game: descriptor of the game the settings were opened from, or nil (library screen).
+function SettingsView:new(context, game)
     local o = setmetatable({}, self)
     o.assets        = context.assets
     o.eventBus      = context.eventBus
     o.settings      = context.settings
     o.mouseProvider = context.mouseProvider
+    o.options       = o.settings:screenOptions(game)
     o.appear        = 0
     o.selected      = 1
     o.hoveredRow    = nil
     o.juice         = {}
 
-    local panelH = 50 + #Settings.OPTIONS * ROW_H + 52
+    local panelH = 50 + #o.options * ROW_H + 52
     o.panel = {
         x = math.floor((o.assets.WIDTH - PANEL_W) / 2),
         y = math.floor((o.assets.HEIGHT - panelH) / 2),
@@ -60,7 +62,7 @@ function SettingsView:valueRect(index)
 end
 
 function SettingsView:change(index, dir)
-    local key = Settings.OPTIONS[index].key
+    local key = self.options[index].key
     self.settings:cycle(key, dir)
     self.juice[index] = Anim.newJuice(0.15, 0.03, 0.3)
     self.assets.audio:play("toggle")
@@ -71,7 +73,7 @@ function SettingsView:update(dt, hasFocus)
     local mouseX, mouseY = self.mouseProvider()
     self.hoveredRow = nil
     if hasFocus then
-        for i = 1, #Settings.OPTIONS do
+        for i = 1, #self.options do
             local x, y, w, h = self:rowRect(i)
             if mouseX >= x and mouseX <= x + w and mouseY >= y and mouseY <= y + h then
                 self.hoveredRow = i
@@ -79,7 +81,7 @@ function SettingsView:update(dt, hasFocus)
             end
         end
     end
-    for i = 1, #Settings.OPTIONS do
+    for i = 1, #self.options do
         self.juice[i] = Anim.updateJuice(self.juice[i], dt)
     end
     self.backButton.pos.y = self.backButton.baseY + self:offset()
@@ -94,7 +96,7 @@ function SettingsView:render()
     UI.panel(p.x, p.y + offset, p.w, p.h)
     UI.textCentered("SETTINGS", p.x + p.w / 2, p.y + offset + 22, fonts.big, C.text, { shadowDepth = 2 })
 
-    for i, option in ipairs(Settings.OPTIONS) do
+    for i, option in ipairs(self.options) do
         local x, y, w, h = self:rowRect(i)
         local selected = self.selected == i
         UI.box(x, y, w, h, selected and C.panelLight or C.panelDark, { radius = 5, alpha = selected and 0.9 or 0.6 })
@@ -115,7 +117,7 @@ end
 
 -- Side note next to the selected row explaining its current value (options with `details` only).
 function SettingsView:renderDetails()
-    local option = Settings.OPTIONS[self.selected]
+    local option = self.options[self.selected]
     local details = self.settings:details(option.key)
     if not details then
         return
@@ -151,7 +153,7 @@ function SettingsView:onMouseClick(mouseX, mouseY, button)
     if self.backButton:onMouseClick(mouseX, mouseY) then
         return
     end
-    for i = 1, #Settings.OPTIONS do
+    for i = 1, #self.options do
         local x, y, w, h = self:valueRect(i)
         if mouseX >= x and mouseX <= x + w and mouseY >= y and mouseY <= y + h then
             local dir = (mouseX < x + w / 3 or button == 2) and -1 or 1
@@ -165,10 +167,10 @@ function SettingsView:onKeyPressed(key)
     if key == "escape" or key == "return" then
         self.eventBus:publish("navigate", "back")
     elseif key == "up" then
-        self.selected = (self.selected - 2) % #Settings.OPTIONS + 1
+        self.selected = (self.selected - 2) % #self.options + 1
         self.assets.audio:play("hover")
     elseif key == "down" then
-        self.selected = self.selected % #Settings.OPTIONS + 1
+        self.selected = self.selected % #self.options + 1
         self.assets.audio:play("hover")
     elseif key == "left" then
         self:change(self.selected, -1)

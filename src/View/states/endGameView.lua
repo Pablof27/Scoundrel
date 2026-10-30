@@ -1,44 +1,52 @@
 --[[
     EndGameView
-    End-of-run overlay drawn on top of the final board: result, score (official Scoundrel
-    scoring), personal best (Difficult runs only), difficulty and the statistics of the run.
+    End-of-game overlay drawn on top of the final board: result, score, personal best and the
+    statistics of the game. The content comes from the game's `summary` (see src/Games), as:
+      title, titleColor        "YOU ESCAPED!" in gold...
+      subtitle                 one line under the title
+      scoreLabel, score        the number counted up in the score box
+      isBest                   shows a NEW BEST! badge
+      scoreNote                text on the right of the score box when it isn't a new best (optional)
+      rows                     { label, value, color } listed in two columns
 ]]
 
-local SidebarView = require("src.View.sidebarView")
-local Button      = require("src.View.buttonView")
-local Anim        = require("src.View.anim")
-local UI          = require("src.View.ui")
+local Button = require("src.View.buttonView")
+local Anim   = require("src.View.anim")
+local UI     = require("src.View.ui")
 
 local EndGameView = {}
 EndGameView.__index = EndGameView
 
-local PANEL_W, PANEL_H = 400, 284
+local PANEL_W = 400
 local ROW_H = 15
+local STATS_Y = 120
 
--- result: { didWin, gameState, runTime }; record: { score, isBest }
-function EndGameView:new(context, result, record)
+-- result: { didWin, gameState, runTime }; record: what the game's registerResult returned.
+function EndGameView:new(context, game, result, record)
     local o = setmetatable({}, self)
     o.assets        = context.assets
     o.eventBus      = context.eventBus
     o.mouseProvider = context.mouseProvider
-    o.didWin        = result.didWin
-    o.gameState     = result.gameState
-    o.runTime       = result.runTime
-    o.score         = record.score
-    o.isBest        = record.isBest
+    o.summary       = game.summary(result, record)
+    o.score         = o.summary.score
+    o.isBest        = o.summary.isBest
     o.time          = 0
     o.appear        = 0
     o.titleJuice    = nil
     o.scoreJuice    = nil
 
+    o.perColumn = math.ceil(#o.summary.rows / 2)
+    o.statsH = o.perColumn * ROW_H + 12
+    local buttonsOffset = STATS_Y + o.statsH + 18
+    local panelH = buttonsOffset + 44
     o.panel = {
         x = math.floor((o.assets.WIDTH - PANEL_W) / 2),
-        y = math.floor((o.assets.HEIGHT - PANEL_H) / 2),
+        y = math.floor((o.assets.HEIGHT - panelH) / 2),
         w = PANEL_W,
-        h = PANEL_H,
+        h = panelH,
     }
     local buttonW = 150
-    local buttonsY = o.panel.y + PANEL_H - 44
+    local buttonsY = o.panel.y + buttonsOffset
     o.buttons = {
         Button:new({
             x = o.panel.x + PANEL_W / 2 - buttonW - 6, y = buttonsY, width = buttonW, height = 30,
@@ -89,6 +97,7 @@ end
 
 function EndGameView:render()
     local C, fonts = UI.colors, self.assets.fonts
+    local summary = self.summary
     local p = self.panel
     local offset = self:offset()
     local cx = p.x + p.w / 2
@@ -97,23 +106,13 @@ function EndGameView:render()
     UI.dim(self.assets, 0.6 * self.appear)
     UI.panel(p.x, y, p.w, p.h)
 
-    local title = self.didWin and "YOU ESCAPED!" or "YOU DIED"
     local juice = self.titleJuice
-    UI.textCentered(title, cx, y + 28, fonts.large, self.didWin and C.gold or C.red,
+    UI.textCentered(summary.title, cx, y + 28, fonts.large, summary.titleColor or C.gold,
         { scale = 1 + (juice and juice.scale or 0), r = juice and juice.r or 0, shadowDepth = 3 })
-    local difficulty = self.gameState.difficulty
-    local subtitle
-    if not self.didWin then
-        subtitle = "The dungeon claimed you in room " .. self.gameState.roomNumber .. "."
-    elseif difficulty.clearDungeon then
-        subtitle = "You made it through the whole dungeon."
-    else
-        subtitle = "Too few cards were left for another room: you made it out."
-    end
-    UI.textCentered(subtitle, cx, y + 54, fonts.small, C.textDim)
+    UI.textCentered(summary.subtitle or "", cx, y + 54, fonts.small, C.textDim)
 
     UI.box(p.x + 20, y + 68, p.w - 40, 44, C.panelDark, { radius = 6 })
-    UI.text("SCORE", p.x + 30, y + 74, fonts.tiny, C.textDim, { shadow = false })
+    UI.text(summary.scoreLabel or "SCORE", p.x + 30, y + 74, fonts.tiny, C.textDim, { shadow = false })
     local scoreJuice = self.scoreJuice
     UI.textCentered(tostring(self:shownScore()), cx, y + 90, fonts.large, self.score >= 0 and C.text or C.damage,
         { scale = 1 + (scoreJuice and scoreJuice.scale or 0), r = scoreJuice and scoreJuice.r or 0, shadowDepth = 2 })
@@ -121,28 +120,17 @@ function EndGameView:render()
         local pulse = 1 + 0.06 * math.sin(self.time * 6)
         UI.box(p.x + p.w - 112, y + 80, 80, 18, C.gold, { radius = 4, depth = 2 })
         UI.textCentered("NEW BEST!", p.x + p.w - 72, y + 89, fonts.small, C.textDark, { scale = pulse, shadow = false })
-    elseif not difficulty.ranked then
-        UI.text("Only Difficult runs\nset a best score", p.x + p.w - 150, y + 77, fonts.small, C.textDim,
-            { width = 120, align = "right" })
+    elseif summary.scoreNote then
+        UI.text(summary.scoreNote, p.x + p.w - 150, y + 77, fonts.small, C.textDim, { width = 120, align = "right" })
     end
 
-    local stats = self.gameState.stats
-    local rows = {
-        { label = "Difficulty", value = difficulty.name, color = C[difficulty.color] },
-        { label = "Rooms explored", value = self.gameState.roomNumber },
-        { label = "Time", value = UI.formatTime(self.runTime) },
-    }
-    for _, row in ipairs(SidebarView.STAT_ROWS) do
-        table.insert(rows, { label = row.label, value = stats[row.key] })
-    end
-    local perColumn = math.ceil(#rows / 2)
-    local statsY = y + 120
-    UI.box(p.x + 20, statsY, p.w - 40, perColumn * ROW_H + 12, C.panelDark, { radius = 6 })
+    local statsY = y + STATS_Y
+    UI.box(p.x + 20, statsY, p.w - 40, self.statsH, C.panelDark, { radius = 6 })
     local columnW = (p.w - 40) / 2
-    for i, row in ipairs(rows) do
-        local column = math.floor((i - 1) / perColumn)
+    for i, row in ipairs(summary.rows) do
+        local column = math.floor((i - 1) / self.perColumn)
         local rowX = p.x + 20 + column * columnW
-        local rowY = statsY + 7 + ((i - 1) % perColumn) * ROW_H
+        local rowY = statsY + 7 + ((i - 1) % self.perColumn) * ROW_H
         UI.text(row.label, rowX + 10, rowY, fonts.small, C.textDim)
         local value = tostring(row.value)
         UI.text(value, rowX + columnW - 10 - fonts.small:getWidth(value), rowY, fonts.small, row.color or C.text)

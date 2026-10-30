@@ -3,7 +3,8 @@
     This is the single place where all modules are wired together.
     No other module imports from here; all dependencies flow downward.
     Screens never know about each other: they ask for navigation by publishing
-    "navigate" events, which are resolved here.
+    "navigate" events, which are resolved here. The game being played (one of src/Games)
+    is picked on the library screen and handed to the screens that depend on it.
 ]]
 
 require("src.Core.utils")
@@ -19,9 +20,10 @@ local Records      = require("src.Core.records")
 
 local Game       = require("src.Controller.game")
 local StateStack = require("src.Controller.stateStack")
+local Games      = require("src.Games")
 
+local LibraryView    = require("src.View.states.libraryView")
 local MenuView       = require("src.View.states.menuView")
-local GameView       = require("src.View.states.gameView")
 local PauseView      = require("src.View.states.pauseView")
 local RulesView      = require("src.View.states.rulesView")
 local SettingsView   = require("src.View.states.settingsView")
@@ -31,12 +33,13 @@ local TransitionView = require("src.View.states.transitionView")
 local assets
 local eventBus
 local settings
-local records
+local records     -- game id -> Records
 local game
 local stateStack
 local transition
 local context
 local lastRecord
+local activeGame  -- descriptor of the game picked in the library, nil on the library screen
 
 local function mouseProvider()
     local x, y = push:toGame(love.mouse.getPosition())
@@ -57,29 +60,47 @@ local function transitionTo(buildScreens)
     end)
 end
 
--- New runs use the difficulty currently chosen in the settings.
+-- New games use the rules currently chosen in the settings (e.g. Scoundrel's difficulty).
 local function startGame()
     transitionTo(function()
-        game:start(settings:get("difficulty"))
-        stateStack:push(GameView:new(context, game.gameState))
+        game:start(activeGame.newState(settings))
+        stateStack:push(activeGame.newView(context, game.gameState))
     end)
 end
 
+-- Home screen of the game being played.
 local function showMenu()
     transitionTo(function()
-        stateStack:push(MenuView:new(context))
+        stateStack:push(MenuView:new(context, activeGame))
     end)
+end
+
+local function showLibrary()
+    transitionTo(function()
+        activeGame = nil
+        stateStack:push(LibraryView:new(context, Games))
+    end)
+end
+
+local function selectGame(id)
+    if transition then
+        return
+    end
+    activeGame = Games.byId[id]
+    showMenu()
 end
 
 local navigation = {
-    newGame  = startGame,
-    menu     = showMenu,
-    pause    = function() stateStack:push(PauseView:new(context)) end,
-    rules    = function() stateStack:push(RulesView:new(context)) end,
-    settings = function() stateStack:push(SettingsView:new(context)) end,
-    back     = function() stateStack:pop() end,
-    endGame  = function(result) stateStack:push(EndGameView:new(context, result, lastRecord)) end,
-    quit     = function() love.event.quit() end,
+    library    = showLibrary,
+    selectGame = selectGame,
+    menu       = showMenu,
+    newGame    = startGame,
+    pause      = function() stateStack:push(PauseView:new(context, activeGame)) end,
+    rules      = function() stateStack:push(RulesView:new(context, activeGame)) end,
+    settings   = function() stateStack:push(SettingsView:new(context, activeGame)) end,
+    back       = function() stateStack:pop() end,
+    endGame    = function(result) stateStack:push(EndGameView:new(context, activeGame, result, lastRecord)) end,
+    quit       = function() love.event.quit() end,
 }
 
 local function onSettingChanged(key, value)
@@ -100,9 +121,10 @@ local function displayFPS()
 end
 
 function love.load()
+    -- The save directory predates the library: it keeps its name so saved settings and records stay.
     love.filesystem.setIdentity("scoundrel")
     love.graphics.setDefaultFilter("nearest", "nearest")
-    love.window.setTitle("Scoundrel")
+    love.window.setTitle(Constants.TITLE)
     love.window.setIcon(love.image.newImageData("resources/icon.png"))
     math.randomseed(os.time())
 
@@ -110,8 +132,11 @@ function love.load()
     assets:load()
 
     eventBus = EventBus:new()
-    settings = Settings:new(eventBus)
-    records  = Records:new()
+    settings = Settings:new(eventBus, Games.options())
+    records  = {}
+    for _, g in ipairs(Games) do
+        records[g.id] = Records:new(g.records.file, g.records.defaults)
+    end
     assets.cardBack = settings:get("cardBack")
     assets.audio:setSoundVolume(settings:get("sound"))
     assets.audio:setMusicVolume(settings:get("music"))
@@ -130,9 +155,7 @@ function love.load()
         navigation[target](payload)
     end)
     eventBus:subscribe("endGame", function(didWin, gameState)
-        local score = gameState:score()
-        local isBest = records:registerRun(didWin, score, gameState.difficulty.ranked)
-        lastRecord = { score = score, isBest = isBest }
+        lastRecord = activeGame.registerResult(records[activeGame.id], didWin, gameState)
     end)
     eventBus:subscribe("settingChanged", onSettingChanged)
 
@@ -150,7 +173,7 @@ function love.load()
         push:switchFullscreen()
     end
 
-    stateStack:push(MenuView:new(context))
+    stateStack:push(LibraryView:new(context, Games))
 end
 
 function love.update(dt)

@@ -1,7 +1,8 @@
 --[[
     RulesView
-    "How to play" overlay: a short illustrated tutorial split into pages.
-    Can be opened from the home screen, the pause menu or the in-game RULES button.
+    "How to play" overlay: a short illustrated tutorial split into pages, given by the game
+    (see the `rules` of each game in src/Games).
+    Can be opened from the game's home screen, the pause menu or the in-game RULES button.
 ]]
 
 local Card     = require("src.Model.card")
@@ -14,164 +15,21 @@ local RulesView = {}
 RulesView.__index = RulesView
 
 local PANEL_W, PANEL_H = 620, 352
-local HEART, CLUB, DIAMOND, SPADE = 0, 1, 2, 3
 local TEXT_W = 290
-
--- Rules each difficulty changes, as rows of the comparison table on the DIFFICULTY page.
-local DIFFICULTY_ROWS = {
-    { label = "Whole dungeon", rule = "clearDungeon" },
-    { label = "Equal slays",   rule = "weaponSlaysEqual" },
-    { label = "Best score",    rule = "ranked" },
-}
-
-local function difficultyText()
-    local parts = { "Choose the difficulty in SETTINGS. It applies from your next run." }
-    for _, difficulty in ipairs(Constants.DIFFICULTIES) do
-        table.insert(parts, difficulty.name:upper() .. ": " .. difficulty.description)
-    end
-    return table.concat(parts, "\n\n")
-end
 
 --[[
     Each page has a title and either `text` (left column) plus an illustration on the right
-    (`cards` and `extras`, positioned relative to the illustration center), or `columns`.
+    (`cards` and `extras`, positioned relative to the illustration center), or `columns`
+    (one card, title and text each) with an optional `footer`.
+    Cards: { suit, rank, faceUp, x, y, r, s }. extras(view, ax, ay) draws the rest of the illustration.
 ]]
-local PAGES = {
-    {
-        title = "THE DUNGEON",
-        text = "You are a scoundrel delving into a dungeon made from a deck of cards.\n\n" ..
-            "The dungeon holds 44 cards: every club and spade, plus the hearts and diamonds " ..
-            "from 2 to 10. Red face cards and aces are left out.\n\n" ..
-            "You start with 20 health. Make it through the dungeon to escape: how much of it you must " ..
-            "resolve depends on the difficulty. If your health drops to 0, you die.",
-        cards = {
-            { faceUp = false, x = -62, y = -4 },
-            { faceUp = false, x = -60, y = -7 },
-            { faceUp = false, x = -58, y = -10 },
-        },
-        extras = function(self, ax, ay)
-            local C, fonts = UI.colors, self.assets.fonts
-            UI.textCentered("44 CARDS", ax - 58, ay + 56, fonts.small, C.text)
-            UI.icon(self.assets, "heart", ax + 38, ay - 44, 48)
-            UI.textCentered("20", ax + 62, ay - 20, fonts.large, C.text, { shadowDepth = 2 })
-            UI.textCentered("HEALTH", ax + 62, ay + 18, fonts.small, C.text)
-        end,
-    },
-    {
-        title = "THE CARDS",
-        columns = {
-            { suit = SPADE, value = 12, title = "MONSTERS", color = "red",
-              text = "Clubs and spades deal damage equal to their value.\nJ = 11, Q = 12, K = 13, A = 14." },
-            { suit = DIAMOND, value = 7, title = "WEAPONS", color = "orange",
-              text = "Diamonds reduce a monster's damage by their value. Equipping one discards the old one." },
-            { suit = HEART, value = 5, title = "POTIONS", color = "green",
-              text = "Hearts heal their value, up to 20. Only one potion per room works: the next is wasted." },
-        },
-    },
-    {
-        title = "ROOMS",
-        text = "Each room deals 4 cards from the dungeon. Resolve 3 of them, one at a time, in any order.\n\n" ..
-            "The 4th card stays and becomes part of the next room, which is dealt automatically.\n\n" ..
-            "Before resolving any card you may FLEE: the whole room goes to the bottom of the " ..
-            "dungeon and a new one is dealt. You can never flee two rooms in a row.",
-        cards = {
-            { suit = CLUB, value = 9, x = -96, y = -34, s = 0.72 },
-            { suit = HEART, value = 4, x = -32, y = -34, s = 0.72 },
-            { suit = SPADE, value = 11, x = 32, y = -34, s = 0.72 },
-            { suit = DIAMOND, value = 6, x = 96, y = -34, s = 0.72 },
-        },
-        extras = function(self, ax, ay)
-            local C, fonts = UI.colors, self.assets.fonts
-            for i, dx in ipairs({ -96, -32, 32 }) do
-                UI.textCentered(tostring(i), ax + dx, ay + 12, fonts.medium, C.heal)
-            end
-            UI.textCentered("STAYS", ax + 96, ay + 12, fonts.small, C.gold)
-            UI.box(ax - 40, ay + 42, 80, 24, C.red, { radius = 5, depth = 3 })
-            UI.textCentered("FLEE", ax, ay + 54, fonts.medium, C.text)
-            UI.textCentered("skip the whole room (not twice in a row)", ax, ay + 80, fonts.small, C.text)
-        end,
-    },
-    {
-        title = "COMBAT",
-        text = "Barehanded, a monster hits you for its full value.\n\n" ..
-            "With a weapon you take the monster's value minus the weapon's (never below 0) " ..
-            "and the monster is stacked on the weapon.\n\n" ..
-            "From then on, the weapon only slays monsters weaker than the last one it killed " ..
-            "(on Easy, also as strong). You can always fight barehanded instead to keep your weapon fresh.",
-        cards = {
-            { suit = DIAMOND, value = 5, x = -78, y = -8 },
-            { suit = SPADE, value = 12, x = -54, y = -6, r = 0.03 },
-            { suit = CLUB, value = 11, x = 70, y = -52, s = 0.62 },
-            { suit = SPADE, value = 13, x = 70, y = 40, s = 0.62 },
-        },
-        extras = function(self, ax, ay)
-            local C, fonts = UI.colors, self.assets.fonts
-            UI.textCentered("a 5 that slew a Q", ax - 66, ay + 52, fonts.small, C.text)
-            UI.box(ax + 30, ay - 18, 80, 16, C.orange, { radius = 4, depth = 2 })
-            UI.textCentered("WEAPON -6", ax + 70, ay - 10, fonts.small, C.text)
-            UI.box(ax + 30, ay + 74, 80, 16, C.red, { radius = 4, depth = 2 })
-            UI.textCentered("FISTS -13", ax + 70, ay + 82, fonts.small, C.text)
-            UI.textCentered("J < Q: weapon works", ax + 70, ay - 94, fonts.small, C.text)
-            UI.textCentered("K > Q: too strong", ax + 70, ay + 100, fonts.small, C.text)
-        end,
-    },
-    {
-        title = "DIFFICULTY",
-        text = difficultyText(),
-        extras = function(self, ax, ay)
-            local C, fonts = UI.colors, self.assets.fonts
-            local font = fonts.small
-            local selected = self.settings:get("difficulty")
-            for i, difficulty in ipairs(Constants.DIFFICULTIES) do
-                local cx = ax - 26 + (i - 1) * 64
-                if difficulty.key == selected then
-                    UI.box(cx - 31, ay - 86, 62, 154, C.panelLight, { radius = 6, alpha = 0.4 })
-                    UI.textCentered("SELECTED", cx, ay + 58, fonts.tiny, C.gold)
-                end
-                UI.box(cx - 29, ay - 78, 58, 18, C[difficulty.color], { radius = 4, depth = 2 })
-                UI.textCentered(difficulty.name:upper(), cx, ay - 69, font, C.text)
-                for j, row in ipairs(DIFFICULTY_ROWS) do
-                    local on = difficulty[row.rule]
-                    UI.textCentered(on and "YES" or "-", cx, ay - 34 + (j - 1) * 30, font, on and C.heal or C.textDim)
-                end
-            end
-            for j, row in ipairs(DIFFICULTY_ROWS) do
-                UI.text(row.label, ax - 130, ay - 34 + (j - 1) * 30 - font:getHeight() / 2, font, C.text)
-            end
-            UI.textCentered("change it in SETTINGS", ax, ay + 92, font, C.textDim)
-        end,
-    },
-    {
-        title = "CONTROLS & SCORE",
-        text = "Hover a card to see exactly what it will do. Click it to play it.\n\n" ..
-            "Monsters: click the card to use your weapon, or click FISTS (or right-click the card) " ..
-            "to fight barehanded.\n\n" ..
-            "UNDO (U) takes back cards resolved in the current room. ESC opens the menu.\n\n" ..
-            "Score: escaping scores your remaining health (plus the potion if your last card was one, " ..
-            "drunk at full health). Dying scores your health minus every monster left.",
-        cards = {
-            { suit = CLUB, value = 9, x = 0, y = -46 },
-        },
-        extras = function(self, ax, ay)
-            local C, fonts = UI.colors, self.assets.fonts
-            UI.box(ax - 38, ay + 8, 77, 18, C.orange, { radius = 4, depth = 2 })
-            UI.text("WEAPON", ax - 33, ay + 11, fonts.small, C.text)
-            UI.text("-4", ax + 33 - fonts.small:getWidth("-4"), ay + 11, fonts.small, C.text)
-            UI.box(ax - 38, ay + 29, 77, 18, C.red, { radius = 4, depth = 2 })
-            UI.text("FISTS", ax - 33, ay + 32, fonts.small, C.text)
-            UI.text("-9", ax + 33 - fonts.small:getWidth("-9"), ay + 32, fonts.small, C.text)
-            UI.textCentered("click the card = main action", ax, ay + 66, fonts.small, C.text)
-            UI.textCentered("click a tab = that action", ax, ay + 80, fonts.small, C.text)
-        end,
-    },
-}
-
-function RulesView:new(context)
+function RulesView:new(context, game)
     local o = setmetatable({}, self)
     o.assets        = context.assets
     o.eventBus      = context.eventBus
     o.settings      = context.settings
     o.mouseProvider = context.mouseProvider
+    o.pages         = game.rules
     o.appear        = 0
     o.page          = 1
     o.cards         = {}
@@ -212,17 +70,17 @@ function RulesView:artCenter()
 end
 
 function RulesView:buildPage()
-    local page = PAGES[self.page]
+    local page = self.pages[self.page]
     local p = self.panel
     local specs = {}
     if page.columns then
         for i, column in ipairs(page.columns) do
-            table.insert(specs, { suit = column.suit, value = column.value, x = p.x + 110 + (i - 1) * 200, y = p.y + 112 })
+            table.insert(specs, { suit = column.suit, rank = column.rank, x = p.x + 110 + (i - 1) * 200, y = p.y + 112 })
         end
     else
         local ax, ay = self:artCenter()
         for _, spec in ipairs(page.cards or {}) do
-            table.insert(specs, { suit = spec.suit, value = spec.value, faceUp = spec.faceUp, r = spec.r, s = spec.s,
+            table.insert(specs, { suit = spec.suit, rank = spec.rank, faceUp = spec.faceUp, r = spec.r, s = spec.s,
                 x = ax + spec.x, y = ay + spec.y })
         end
     end
@@ -230,7 +88,7 @@ function RulesView:buildPage()
     self.cards = {}
     for i, spec in ipairs(specs) do
         local faceUp = spec.faceUp ~= false
-        local card = faceUp and Card:new(spec.suit, spec.value) or nil
+        local card = faceUp and Card:new(spec.suit, spec.rank) or nil
         local view = CardView:new(card, self.assets, spec.x, spec.y + 40, { s = spec.s })
         view:setTarget(spec.x, spec.y, spec.r or 0, spec.s or 1)
         view.faceUp = faceUp
@@ -244,7 +102,7 @@ function RulesView:goTo(page)
     if page < 1 then
         return
     end
-    if page > #PAGES then
+    if page > #self.pages then
         self:close()
         return
     end
@@ -266,7 +124,7 @@ function RulesView:update(dt, hasFocus)
     self.appear = Anim.moveTowards(self.appear, 1, dt * 5)
     self.pageJuice = Anim.updateJuice(self.pageJuice, dt)
     self.prevButton.disabled = self.page == 1
-    self.nextButton.text = self.page == #PAGES and "DONE" or "NEXT >"
+    self.nextButton.text = self.page == #self.pages and "DONE" or "NEXT >"
 
     local mouseX, mouseY = self.mouseProvider()
     if not hasFocus then
@@ -289,7 +147,7 @@ end
 function RulesView:render()
     local C, fonts = UI.colors, self.assets.fonts
     local p = self.panel
-    local page = PAGES[self.page]
+    local page = self.pages[self.page]
 
     UI.dim(self.assets, 0.6 * self.appear)
     love.graphics.push()
@@ -309,8 +167,9 @@ function RulesView:render()
             UI.textCentered(column.title, cx, p.y + 184, fonts.medium, C[column.color])
             UI.text(column.text, cx - 88, p.y + 200, font, C.text, { width = 176, align = "center" })
         end
-        UI.textCentered("During a run, hover any card to see exactly what it will do.", p.x + p.w / 2, p.y + 282,
-            font, C.textDim)
+        if page.footer then
+            UI.textCentered(page.footer, p.x + p.w / 2, p.y + 282, font, C.textDim)
+        end
     else
         UI.text(page.text, p.x + 22, p.y + 56, font, C.text, { width = TEXT_W })
         local ax, ay = self:artCenter()
@@ -325,8 +184,9 @@ function RulesView:render()
         local ax, ay = self:artCenter()
         page.extras(self, ax, ay)
     end
-    for i = 1, #PAGES do
-        local dotX = p.x + p.w / 2 + (i - (#PAGES + 1) / 2) * 14
+    local pageCount = #self.pages
+    for i = 1, pageCount do
+        local dotX = p.x + p.w / 2 + (i - (pageCount + 1) / 2) * 14
         UI.setColor(i == self.page and C.gold or C.panelLight)
         love.graphics.circle("fill", dotX, p.y + p.h - 28, i == self.page and 4 or 3)
     end

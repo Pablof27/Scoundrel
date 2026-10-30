@@ -23,7 +23,21 @@ AssetManager.BACKGROUND_COLOR  = Constants.BACKGROUND_COLOR
 
 -- Card backs (indices into Enhancers.png), in the same order as the "Card back" setting.
 local CARD_BACK_FRAMES = { 1, 15, 16, 17, 18, 20, 4, 32 }
-local BACK_ROW = 4
+
+--[[
+    One atlas row per suit: the pips of a row of 8BitDeck_small.png (hearts, clubs, diamonds, spades)
+    drawn on a frame of Enhancers.png. The fifth suit, gold spades, completes Lobo's five-suit deck.
+    The card backs take the row after the suits.
+]]
+local SUITS = {
+    { pips = 0, frame = 2 }, -- hearts
+    { pips = 1, frame = 2 }, -- clubs
+    { pips = 2, frame = 2 }, -- diamonds
+    { pips = 3, frame = 2 }, -- spades
+    { pips = 3, frame = 7 }, -- gold spades
+}
+local RANKS = 13
+local BACK_ROW = #SUITS
 
 -- Indices into ui_assets.png
 AssetManager.ICONS = { sun = 1, letter = 2, torch = 3, hash = 4, heart = 5, diamond = 6, club = 7, spade = 8 }
@@ -82,19 +96,22 @@ end
 
 -- Bakes every card face (frame + pips) and every card back into a single atlas,
 -- so a card is one quad and the card shader can dissolve it as a whole.
+-- Faces are indexed by Card.position: (position - 1) % 13 is the column, the suit the row.
 function AssetManager:composeCardAtlas()
     local size = self:getCardSize()
     local w, h = size.width, size.height
-    local canvas = love.graphics.newCanvas(w * 13, h * (BACK_ROW + 1), { dpiscale = 1 })
+    local canvas = love.graphics.newCanvas(w * RANKS, h * (BACK_ROW + 1), { dpiscale = 1 })
 
     love.graphics.push("all")
     love.graphics.setCanvas(canvas)
     love.graphics.clear(0, 0, 0, 0)
     love.graphics.setColor(1, 1, 1, 1)
-    for position = 1, 52 do
-        local col, row = (position - 1) % 13, math.floor((position - 1) / 13)
-        love.graphics.draw(self.textures.cardFrames, self.frames.cardFrames[2], col * w, row * h)
-        love.graphics.draw(self.textures.pips, self.frames.pips[position], col * w, row * h)
+    for row, suit in ipairs(SUITS) do
+        local y = (row - 1) * h
+        for col = 0, RANKS - 1 do
+            love.graphics.draw(self.textures.cardFrames, self.frames.cardFrames[suit.frame], col * w, y)
+            love.graphics.draw(self.textures.pips, self.frames.pips[suit.pips * RANKS + col + 1], col * w, y)
+        end
     end
     for i, frame in ipairs(CARD_BACK_FRAMES) do
         love.graphics.draw(self.textures.cardFrames, self.frames.cardFrames[frame], (i - 1) * w, BACK_ROW * h)
@@ -106,8 +123,8 @@ function AssetManager:composeCardAtlas()
 
     local atlasW, atlasH = self.textures.cards:getDimensions()
     self.frames.cardFaces = {}
-    for position = 1, 52 do
-        local col, row = (position - 1) % 13, math.floor((position - 1) / 13)
+    for position = 1, #SUITS * RANKS do
+        local col, row = (position - 1) % RANKS, math.floor((position - 1) / RANKS)
         self.frames.cardFaces[position] = love.graphics.newQuad(col * w, row * h, w, h, atlasW, atlasH)
     end
     self.frames.cardBacks = {}
@@ -121,7 +138,7 @@ function AssetManager:cardCell(position)
     if position == nil then
         return self.cardBack - 1, BACK_ROW
     end
-    return (position - 1) % 13, math.floor((position - 1) / 13)
+    return (position - 1) % RANKS, math.floor((position - 1) / RANKS)
 end
 
 function AssetManager:cardQuad(position)

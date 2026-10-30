@@ -3,10 +3,12 @@
     Manages health, armor, and damage calculations.
 ]]
 
+local Config = require("src.Games.Scoundrel.config")
+
 local Player = {}
 Player.__index = Player
 
-local MAX_LIFES = Constants.MAX_LIFES
+local MAX_LIFES = Config.MAX_LIFES
 
 -- weaponSlaysEqual: weapons can also slay a monster as strong as the last one they slew (Easy).
 function Player:new(weaponSlaysEqual)

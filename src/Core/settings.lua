@@ -1,6 +1,8 @@
 --[[
     Settings
     User preferences, persisted between sessions.
+    The general options below apply to every game; each game can declare its own options
+    (e.g. Scoundrel's difficulty), which are stored in the same file.
     Publishes "settingChanged"(key, value) on the EventBus whenever a value changes.
 ]]
 
@@ -17,18 +19,12 @@ local VOLUME_NAMES = { "Off", "25%", "50%", "75%", "100%" }
 local CARD_BACKS = { 1, 2, 3, 4, 5, 6, 7, 8 }
 local CARD_BACK_NAMES = { "Red", "Blue", "Orange", "Green", "Black", "Purple", "Galaxy", "Zodiac" }
 
-local DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_DETAILS = {}, {}, {}
-for i, difficulty in ipairs(Constants.DIFFICULTIES) do
-    DIFFICULTIES[i] = difficulty.key
-    DIFFICULTY_NAMES[i] = difficulty.name
-    DIFFICULTY_DETAILS[i] = difficulty.description
-end
-
--- Order here is the order shown in the settings screen. `default` falls back to the first value.
--- Optional `details` (one per value) and `note` explain the current value next to the settings panel.
+--[[
+    Options of every game, in the order shown in the settings screen. Each option has a unique `key`,
+    a `label`, its `values` and their `names`. `default` falls back to the first value.
+    Optional `details` (one per value) and `note` explain the current value next to the settings panel.
+]]
 Settings.OPTIONS = {
-    { key = "difficulty",  label = "Difficulty",      values = DIFFICULTIES,     names = DIFFICULTY_NAMES,
-      default = Constants.DEFAULT_DIFFICULTY, details = DIFFICULTY_DETAILS, note = "Applies from your next run." },
     { key = "music",       label = "Music",           values = VOLUMES,          names = VOLUME_NAMES, default = 0.5 },
     { key = "sound",       label = "Sound effects",   values = VOLUMES,          names = VOLUME_NAMES, default = 0.75 },
     { key = "fullscreen",  label = "Fullscreen",      values = { false, true },  names = { "Off", "On" } },
@@ -49,20 +45,41 @@ if Constants.IS_WEB then
     end
 end
 
-local DEFAULTS = {}
-for _, option in ipairs(Settings.OPTIONS) do
-    if option.default ~= nil then
-        DEFAULTS[option.key] = option.default
-    else
-        DEFAULTS[option.key] = option.values[1]
-    end
-end
-
-function Settings:new(eventBus)
+-- gameOptions: the options declared by the games, with the same fields as Settings.OPTIONS.
+function Settings:new(eventBus, gameOptions)
     local o = setmetatable({}, self)
     o.eventBus = eventBus
-    o.values = Storage.load(FILENAME, DEFAULTS)
+    o.byKey = {}
+    local defaults = {}
+    local function register(option)
+        o.byKey[option.key] = option
+        if option.default ~= nil then
+            defaults[option.key] = option.default
+        else
+            defaults[option.key] = option.values[1]
+        end
+    end
+    for _, option in ipairs(Settings.OPTIONS) do
+        register(option)
+    end
+    for _, option in ipairs(gameOptions or {}) do
+        register(option)
+    end
+    o.values = Storage.load(FILENAME, defaults)
     return o
+end
+
+-- Options listed by the settings screen: the game's own options first (when opened from a game),
+-- then the general ones.
+function Settings:screenOptions(game)
+    local list = {}
+    for _, option in ipairs(game and game.options or {}) do
+        table.insert(list, option)
+    end
+    for _, option in ipairs(Settings.OPTIONS) do
+        table.insert(list, option)
+    end
+    return list
 end
 
 function Settings:get(key)
@@ -79,11 +96,7 @@ function Settings:set(key, value)
 end
 
 function Settings:option(key)
-    for _, option in ipairs(self.OPTIONS) do
-        if option.key == key then
-            return option
-        end
-    end
+    return self.byKey[key]
 end
 
 -- Moves the option to its next (dir = 1) or previous (dir = -1) value, wrapping around.

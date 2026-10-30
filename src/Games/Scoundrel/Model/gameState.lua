@@ -1,26 +1,50 @@
 --[[
-    GameState
+    Scoundrel GameState
     Pure game-state model. Contains no references to Views or UI.
     End-game detection is exposed as query methods; the Controller decides what to do.
 ]]
 
-local Player    = require("src.Model.player")
+local Card      = require("src.Model.card")
 local Deck      = require("src.Model.deck")
-local Room      = require("src.Model.room")
+local Config    = require("src.Games.Scoundrel.config")
+local Player    = require("src.Games.Scoundrel.Model.player")
+local Room      = require("src.Games.Scoundrel.Model.room")
 
 local GameState = {}
 GameState.__index = GameState
 
-local CARDS_PER_ROOM = Constants.CARDS_PER_ROOM
-local MAX_LIFES      = Constants.MAX_LIFES
-local DIFFICULTIES   = Constants.DIFFICULTIES
+local CARDS_PER_ROOM = Config.CARDS_PER_ROOM
+local MAX_LIFES      = Config.MAX_LIFES
 
--- difficulty: key of one of Constants.DIFFICULTIES (defaults to Constants.DEFAULT_DIFFICULTY).
+-- Clubs and spades are monsters; their face cards and aces (J, Q, K, A) are bosses.
+function GameState.isMonster(card)
+    return card:isClub() or card:isSpade()
+end
+
+function GameState.isBoss(card)
+    return GameState.isMonster(card) and card.value >= 11
+end
+
+-- The 44-card dungeon: every club and spade, plus hearts and diamonds from 2 to 10.
+local function newDungeon()
+    local cards = {}
+    for _, suit in ipairs({ Card.SUITS.HEART, Card.SUITS.CLUB, Card.SUITS.DIAMOND, Card.SUITS.SPADE }) do
+        local highest = (suit == Card.SUITS.HEART or suit == Card.SUITS.DIAMOND) and 10 or Card.ACE
+        for rank = 2, highest do
+            table.insert(cards, Card:new(suit, rank))
+        end
+    end
+    local deck = Deck:new(cards)
+    deck:shuffle()
+    return deck
+end
+
+-- difficulty: key of one of Config.DIFFICULTIES (defaults to Config.DEFAULT_DIFFICULTY).
 function GameState:new(difficulty)
     local o = setmetatable({}, self)
-    o.difficulty  = DIFFICULTIES[difficulty] or DIFFICULTIES[Constants.DEFAULT_DIFFICULTY]
+    o.difficulty  = Config.difficulty(difficulty)
     o.discardPile = {}
-    o.drawPile    = Deck:new()
+    o.drawPile    = newDungeon()
     o.room        = Room:new(o.drawPile:drawCards(CARDS_PER_ROOM))
     o.player      = Player:new(o.difficulty.weaponSlaysEqual)
     o.skippedLast = false
@@ -181,22 +205,13 @@ function GameState:playCardIfPossible(card, useArmor)
         stats.damageBlocked = stats.damageBlocked + (card.value - outcome.damage)
         if not self:isPlayerDead() then
             stats.monstersSlain = stats.monstersSlain + 1
-            if card:isBoss() then
+            if GameState.isBoss(card) then
                 stats.bossesSlain = stats.bossesSlain + 1
             end
         end
     end
 
     self.lastOutcome = outcome
-    return true
-end
-
-function GameState:nextState(playerAction)
-    self.errorMsg = nil
-    if not playerAction:execute(self) then
-        print("Action could not be executed: " .. tostring(self.errorMsg))
-        return false
-    end
     return true
 end
 
@@ -238,7 +253,7 @@ function GameState:score()
         local remaining = 0
         for _, pile in ipairs({ self.room.cards, self.drawPile.cards }) do
             for _, card in ipairs(pile) do
-                if card:isMonster() then
+                if GameState.isMonster(card) then
                     remaining = remaining + card.value
                 end
             end

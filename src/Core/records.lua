@@ -1,7 +1,7 @@
 --[[
     Records
-    Lifetime statistics across runs (runs played, wins, best score), persisted between sessions.
-    Every run counts towards runs played and escapes; only ranked runs (Difficult) can set the best score.
+    Lifetime statistics of one game (games played, wins, best scores...), persisted between sessions
+    in the game's own file. Each game decides what it records (see `registerResult` in src/Games).
 ]]
 
 local Storage = require("src.Core.storage")
@@ -9,18 +9,11 @@ local Storage = require("src.Core.storage")
 local Records = {}
 Records.__index = Records
 
-local FILENAME = "records.txt"
-
-local DEFAULTS = {
-    gamesPlayed   = 0,
-    gamesWon      = 0,
-    hasBestScore  = false,
-    bestScore     = 0,
-}
-
-function Records:new()
+-- defaults: every key the game records, with its initial value (booleans, numbers or strings).
+function Records:new(filename, defaults)
     local o = setmetatable({}, self)
-    o.values = Storage.load(FILENAME, DEFAULTS)
+    o.filename = filename
+    o.values = Storage.load(filename, defaults)
     return o
 end
 
@@ -28,21 +21,16 @@ function Records:get(key)
     return self.values[key]
 end
 
--- Stores the result of a finished run. Returns true when the score is a new personal best,
--- which only ranked runs can set.
-function Records:registerRun(didWin, score, ranked)
-    local values = self.values
-    values.gamesPlayed = values.gamesPlayed + 1
-    if didWin then
-        values.gamesWon = values.gamesWon + 1
-    end
-    local isBest = ranked == true and (not values.hasBestScore or score > values.bestScore)
-    if isBest then
-        values.hasBestScore = true
-        values.bestScore = score
-    end
-    Storage.save(FILENAME, values)
-    return isBest
+function Records:set(key, value)
+    self.values[key] = value
+end
+
+function Records:add(key, amount)
+    self.values[key] = self.values[key] + (amount or 1)
+end
+
+function Records:save()
+    Storage.save(self.filename, self.values)
 end
 
 return Records

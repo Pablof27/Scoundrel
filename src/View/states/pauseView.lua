@@ -1,6 +1,6 @@
 --[[
     PauseView
-    In-game menu overlay (ESC / MENU button). The run keeps its state underneath.
+    In-game menu overlay (ESC / MENU button). The game keeps its state underneath.
 ]]
 
 local Button = require("src.View.buttonView")
@@ -10,18 +10,11 @@ local UI     = require("src.View.ui")
 local PauseView = {}
 PauseView.__index = PauseView
 
-local BUTTONS = {
-    { text = "RESUME",      color = "blue",   target = "back" },
-    { text = "RESTART RUN", color = "orange", target = "newGame" },
-    { text = "HOW TO PLAY", color = "purple", target = "rules" },
-    { text = "SETTINGS",    color = "green",  target = "settings" },
-    { text = "MAIN MENU",   color = "red",    target = "menu" },
-}
-
 local PANEL_W = 200
 local BUTTON_H, BUTTON_GAP = 28, 8
 
-function PauseView:new(context)
+-- game: descriptor of the game being played (its `restartLabel` names the restart button).
+function PauseView:new(context, game)
     local o = setmetatable({}, self)
     o.assets        = context.assets
     o.eventBus      = context.eventBus
@@ -29,14 +22,21 @@ function PauseView:new(context)
     o.appear        = 0
     o.buttons       = {}
 
-    local panelH = 52 + #BUTTONS * (BUTTON_H + BUTTON_GAP) + 6
+    local specs = {
+        { text = "RESUME",      color = "blue",   target = "back" },
+        { text = game.restartLabel or "RESTART", color = "orange", target = "newGame" },
+        { text = "HOW TO PLAY", color = "purple", target = "rules" },
+        { text = "SETTINGS",    color = "green",  target = "settings" },
+        { text = "MAIN MENU",   color = "red",    target = "menu" },
+    }
+    local panelH = 52 + #specs * (BUTTON_H + BUTTON_GAP) + 6
     o.panel = {
         x = math.floor((o.assets.WIDTH - PANEL_W) / 2),
         y = math.floor((o.assets.HEIGHT - panelH) / 2),
         w = PANEL_W,
         h = panelH,
     }
-    for i, spec in ipairs(BUTTONS) do
+    for i, spec in ipairs(specs) do
         local button = Button:new({
             x = o.panel.x + 16, y = 0, width = PANEL_W - 32, height = BUTTON_H,
             text = spec.text, color = UI.colors[spec.color],

@@ -111,6 +111,26 @@ function UI.textCentered(text, cx, cy, font, color, opts)
     font:print(text, cx, cy, r, scale, scale, ox, oy)
 end
 
+--[[
+    Title centered on (cx, cy) whose letters bob up and down over `time`.
+    opts: amplitude (pixels), speed, spacing (phase between letters), tilt (rotation amplitude),
+          color, shadowDepth, alpha.
+]]
+function UI.wavyText(text, cx, cy, font, time, opts)
+    opts = opts or {}
+    local amplitude, speed, spacing = opts.amplitude or 3, opts.speed or 2, opts.spacing or 0.55
+    local tilt = opts.tilt or 0
+    local x = cx - font:getWidth(text) / 2
+    for i = 1, #text do
+        local letter = text:sub(i, i)
+        local letterW = font:getWidth(letter)
+        local wave = math.sin(time * speed + i * spacing) * amplitude
+        UI.textCentered(letter, x + letterW / 2, cy + wave, font, opts.color or UI.colors.text,
+            { r = math.sin(time * 1.3 + i) * tilt, shadowDepth = opts.shadowDepth or 1, alpha = opts.alpha })
+        x = x + letterW
+    end
+end
+
 -- Draws an icon from ui_assets.png (see AssetManager.ICONS) scaled to `size` pixels.
 function UI.icon(assets, name, x, y, size, alpha, color)
     local quad = assets.frames.uiAssets[assets.ICONS[name]]

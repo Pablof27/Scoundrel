@@ -1,7 +1,7 @@
 --[[
     DeckView
-    Renders the dungeon (draw pile) as a stack of card backs with a remaining-cards badge.
-    Cards are dealt from, and fled back into, topPosition(). Purely visual: no game actions.
+    Renders a draw pile as a stack of card backs with a remaining-cards badge.
+    Cards are dealt from, and returned to, topPosition(). Purely visual: no game actions.
 ]]
 
 local Anim = require("src.View.anim")
@@ -15,12 +15,13 @@ local LAYER_DX, LAYER_DY = -0.5, -1.5
 
 function DeckView:new(assets, x, y)
     local o = setmetatable({}, self)
-    o.assets   = assets
-    o.x, o.y   = x, y  -- center of the bottom card
-    o.size     = assets:getCardSize()
-    o.count    = 0
-    o.juice    = nil
-    o.hoovered = false
+    o.assets    = assets
+    o.x, o.y    = x, y  -- center of the bottom card
+    o.size      = assets:getCardSize()
+    o.count     = 0
+    o.juice     = nil
+    o.hoovered  = false
+    o.showBadge = true  -- remaining-cards badge on the top card
     return o
 end
 
@@ -71,6 +72,9 @@ function DeckView:render()
             self.x + i * LAYER_DX, self.y + i * LAYER_DY, 0, s, s, w / 2, h / 2)
     end
 
+    if not self.showBadge then
+        return
+    end
     local topX, topY = self:topPosition()
     local label = tostring(self.count)
     local badgeW = math.max(22, assets.fonts.small:getWidth(label) + 10)
