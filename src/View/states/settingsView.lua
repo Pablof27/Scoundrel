@@ -1,7 +1,8 @@
 --[[
     SettingsView
     Overlay listing every user preference. Click a value (or use the arrow keys) to change it.
-    Values are applied and saved immediately through Settings.
+    Values are applied and saved immediately through Settings. Options with `details` (difficulty)
+    explain their current value in a note next to the panel.
 ]]
 
 local Settings = require("src.Core.settings")
@@ -15,6 +16,7 @@ SettingsView.__index = SettingsView
 local PANEL_W = 340
 local ROW_H = 28
 local VALUE_W = 128
+local DETAILS_W, DETAILS_GAP = 148, 8
 
 function SettingsView:new(context)
     local o = setmetatable({}, self)
@@ -107,7 +109,42 @@ function SettingsView:render()
         UI.textCentered(">", vx + vw - 9, vy + vh / 2, fonts.medium, C.text, { alpha = 0.8 })
     end
 
+    self:renderDetails()
     self.backButton:render()
+end
+
+-- Side note next to the selected row explaining its current value (options with `details` only).
+function SettingsView:renderDetails()
+    local option = Settings.OPTIONS[self.selected]
+    local details = self.settings:details(option.key)
+    if not details then
+        return
+    end
+    local C, fonts = UI.colors, self.assets.fonts
+    local font = fonts.small
+    local textW = DETAILS_W - 16
+    local lineH = font:getHeight()
+    local _, lines = font:getWrap(details, textW)
+    local noteLines = {}
+    if option.note then
+        _, noteLines = font:getWrap(option.note, textW)
+    end
+
+    local _, rowY, _, rowH = self:rowRect(self.selected)
+    local x, y = self.panel.x + self.panel.w + DETAILS_GAP, rowY - 4
+    local h = 30 + #lines * lineH + (#noteLines > 0 and (6 + #noteLines * lineH) or 0)
+    local alpha = self.appear
+    UI.box(x, y, DETAILS_W, h, C.panelDark, { radius = 6, depth = 3, outline = C.panelLight, alpha = alpha })
+    -- Pointer towards the row.
+    local tipY = rowY + rowH / 2
+    UI.setColor(C.panelLight, alpha)
+    love.graphics.polygon("fill", x + 0.5, tipY - 6, x - DETAILS_GAP + 2, tipY, x + 0.5, tipY + 6)
+
+    UI.text(self.settings:displayValue(option.key):upper(), x + 8, y + 8, fonts.medium, C.gold, { alpha = alpha })
+    UI.text(details, x + 8, y + 26, font, C.text, { width = textW, alpha = alpha })
+    if option.note then
+        UI.text(option.note, x + 8, y + 32 + #lines * lineH, font, C.textDim, { width = textW, alpha = alpha })
+    end
 end
 
 function SettingsView:onMouseClick(mouseX, mouseY, button)

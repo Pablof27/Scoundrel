@@ -17,6 +17,21 @@ local PANEL_W, PANEL_H = 620, 352
 local HEART, CLUB, DIAMOND, SPADE = 0, 1, 2, 3
 local TEXT_W = 290
 
+-- Rules each difficulty changes, as rows of the comparison table on the DIFFICULTY page.
+local DIFFICULTY_ROWS = {
+    { label = "Whole dungeon", rule = "clearDungeon" },
+    { label = "Equal slays",   rule = "weaponSlaysEqual" },
+    { label = "Best score",    rule = "ranked" },
+}
+
+local function difficultyText()
+    local parts = { "Choose the difficulty in SETTINGS. It applies from your next run." }
+    for _, difficulty in ipairs(Constants.DIFFICULTIES) do
+        table.insert(parts, difficulty.name:upper() .. ": " .. difficulty.description)
+    end
+    return table.concat(parts, "\n\n")
+end
+
 --[[
     Each page has a title and either `text` (left column) plus an illustration on the right
     (`cards` and `extras`, positioned relative to the illustration center), or `columns`.
@@ -27,7 +42,8 @@ local PAGES = {
         text = "You are a scoundrel delving into a dungeon made from a deck of cards.\n\n" ..
             "The dungeon holds 44 cards: every club and spade, plus the hearts and diamonds " ..
             "from 2 to 10. Red face cards and aces are left out.\n\n" ..
-            "You start with 20 health. Resolve every card to escape. If your health drops to 0, you die.",
+            "You start with 20 health. Make it through the dungeon to escape: how much of it you must " ..
+            "resolve depends on the difficulty. If your health drops to 0, you die.",
         cards = {
             { faceUp = false, x = -62, y = -4 },
             { faceUp = false, x = -60, y = -7 },
@@ -80,8 +96,8 @@ local PAGES = {
         text = "Barehanded, a monster hits you for its full value.\n\n" ..
             "With a weapon you take the monster's value minus the weapon's (never below 0) " ..
             "and the monster is stacked on the weapon.\n\n" ..
-            "From then on, the weapon only slays monsters weaker than the last one it killed. " ..
-            "You can always fight barehanded instead to keep your weapon fresh.",
+            "From then on, the weapon only slays monsters weaker than the last one it killed " ..
+            "(on Easy, also as strong). You can always fight barehanded instead to keep your weapon fresh.",
         cards = {
             { suit = DIAMOND, value = 5, x = -78, y = -8 },
             { suit = SPADE, value = 12, x = -54, y = -6, r = 0.03 },
@@ -97,6 +113,32 @@ local PAGES = {
             UI.textCentered("FISTS -13", ax + 70, ay + 82, fonts.small, C.text)
             UI.textCentered("J < Q: weapon works", ax + 70, ay - 94, fonts.small, C.text)
             UI.textCentered("K > Q: too strong", ax + 70, ay + 100, fonts.small, C.text)
+        end,
+    },
+    {
+        title = "DIFFICULTY",
+        text = difficultyText(),
+        extras = function(self, ax, ay)
+            local C, fonts = UI.colors, self.assets.fonts
+            local font = fonts.small
+            local selected = self.settings:get("difficulty")
+            for i, difficulty in ipairs(Constants.DIFFICULTIES) do
+                local cx = ax - 26 + (i - 1) * 64
+                if difficulty.key == selected then
+                    UI.box(cx - 31, ay - 86, 62, 154, C.panelLight, { radius = 6, alpha = 0.4 })
+                    UI.textCentered("SELECTED", cx, ay + 58, fonts.tiny, C.gold)
+                end
+                UI.box(cx - 29, ay - 78, 58, 18, C[difficulty.color], { radius = 4, depth = 2 })
+                UI.textCentered(difficulty.name:upper(), cx, ay - 69, font, C.text)
+                for j, row in ipairs(DIFFICULTY_ROWS) do
+                    local on = difficulty[row.rule]
+                    UI.textCentered(on and "YES" or "-", cx, ay - 34 + (j - 1) * 30, font, on and C.heal or C.textDim)
+                end
+            end
+            for j, row in ipairs(DIFFICULTY_ROWS) do
+                UI.text(row.label, ax - 130, ay - 34 + (j - 1) * 30 - font:getHeight() / 2, font, C.text)
+            end
+            UI.textCentered("change it in SETTINGS", ax, ay + 92, font, C.textDim)
         end,
     },
     {
@@ -128,6 +170,7 @@ function RulesView:new(context)
     local o = setmetatable({}, self)
     o.assets        = context.assets
     o.eventBus      = context.eventBus
+    o.settings      = context.settings
     o.mouseProvider = context.mouseProvider
     o.appear        = 0
     o.page          = 1

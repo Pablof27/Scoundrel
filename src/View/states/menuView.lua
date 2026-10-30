@@ -1,6 +1,7 @@
 --[[
     MenuView
-    Home screen: animated title, a fan of floating cards and the main navigation buttons.
+    Home screen: animated title, a fan of floating cards, the main navigation buttons and
+    the difficulty new runs will use.
     Publishes "navigate" events; it knows nothing about the other screens.
 ]]
 
@@ -30,6 +31,7 @@ function MenuView:new(context)
     local o = setmetatable({}, self)
     o.assets        = context.assets
     o.eventBus      = context.eventBus
+    o.settings      = context.settings
     o.records       = context.records
     o.mouseProvider = context.mouseProvider
     o.time          = 0
@@ -140,17 +142,38 @@ function MenuView:render()
     for _, button in ipairs(self.buttons) do
         button:render()
     end
+    self:renderDifficulty()
 
     UI.textCentered(self:recordsText(), W / 2, H - 28, assets.fonts.small, UI.colors.text, { alpha = 0.85 })
+end
+
+-- Tag under PLAY with the difficulty new runs will use (chosen in the settings).
+function MenuView:renderDifficulty()
+    local play = self.buttons[1]
+    if not play.visible then
+        return
+    end
+    local difficulty = Constants.DIFFICULTIES[self.settings:get("difficulty")] or
+        Constants.DIFFICULTIES[Constants.DEFAULT_DIFFICULTY]
+    local font = self.assets.fonts.small
+    local label = difficulty.name:upper()
+    local w, h = font:getWidth(label) + 12, 15
+    local cx = play.pos.x + play.size.width / 2
+    local y = play.pos.y + play.size.height + 9
+    UI.box(cx - w / 2, y, w, h, UI.colors[difficulty.color], { radius = 4, depth = 2 })
+    UI.textCentered(label, cx, y + h / 2, font, UI.colors.text)
 end
 
 function MenuView:recordsText()
     local played = self.records:get("gamesPlayed")
     if played == 0 then
-        return "Survive all 44 cards of the dungeon. Good luck, scoundrel."
+        return "Survive the 44-card dungeon. Good luck, scoundrel."
     end
-    return "Runs " .. played .. "     Escaped " .. self.records:get("gamesWon") ..
-        "     Best score " .. self.records:get("bestScore")
+    local text = "Runs " .. played .. "     Escaped " .. self.records:get("gamesWon")
+    if self.records:get("hasBestScore") then
+        text = text .. "     Best score " .. self.records:get("bestScore")
+    end
+    return text
 end
 
 function MenuView:onMouseClick(mouseX, mouseY, button)

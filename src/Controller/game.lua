@@ -23,8 +23,9 @@ function Game:new(eventBus)
     return o
 end
 
-function Game:start()
-    self.gameState = GameState:new()
+-- difficulty: key of one of Constants.DIFFICULTIES.
+function Game:start(difficulty)
+    self.gameState = GameState:new(difficulty)
     self.history = {}
 end
 

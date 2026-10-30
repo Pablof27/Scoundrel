@@ -57,9 +57,10 @@ local function transitionTo(buildScreens)
     end)
 end
 
+-- New runs use the difficulty currently chosen in the settings.
 local function startGame()
     transitionTo(function()
-        game:start()
+        game:start(settings:get("difficulty"))
         stateStack:push(GameView:new(context, game.gameState))
     end)
 end
@@ -131,7 +132,8 @@ function love.load()
     end)
     eventBus:subscribe("endGame", function(didWin, gameState)
         local score = gameState:score()
-        lastRecord = { score = score, isBest = records:registerRun(didWin, score) }
+        local isBest = records:registerRun(didWin, score, gameState.difficulty.ranked)
+        lastRecord = { score = score, isBest = isBest }
     end)
     eventBus:subscribe("settingChanged", onSettingChanged)
 

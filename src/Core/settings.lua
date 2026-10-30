@@ -14,16 +14,28 @@ local FILENAME = "settings.txt"
 local VOLUMES      = { 0, 0.25, 0.5, 0.75, 1 }
 local VOLUME_NAMES = { "Off", "25%", "50%", "75%", "100%" }
 
+local CARD_BACKS = { 1, 2, 3, 4, 5, 6, 7, 8 }
+local CARD_BACK_NAMES = { "Red", "Blue", "Orange", "Green", "Black", "Purple", "Galaxy", "Zodiac" }
+
+local DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_DETAILS = {}, {}, {}
+for i, difficulty in ipairs(Constants.DIFFICULTIES) do
+    DIFFICULTIES[i] = difficulty.key
+    DIFFICULTY_NAMES[i] = difficulty.name
+    DIFFICULTY_DETAILS[i] = difficulty.description
+end
+
 -- Order here is the order shown in the settings screen. `default` falls back to the first value.
+-- Optional `details` (one per value) and `note` explain the current value next to the settings panel.
 Settings.OPTIONS = {
-    { key = "music",       label = "Music",           values = VOLUMES, names = VOLUME_NAMES, default = 0.5 },
-    { key = "sound",       label = "Sound effects",   values = VOLUMES, names = VOLUME_NAMES, default = 0.75 },
+    { key = "difficulty",  label = "Difficulty",      values = DIFFICULTIES,     names = DIFFICULTY_NAMES,
+      default = Constants.DEFAULT_DIFFICULTY, details = DIFFICULTY_DETAILS, note = "Applies from your next run." },
+    { key = "music",       label = "Music",           values = VOLUMES,          names = VOLUME_NAMES, default = 0.5 },
+    { key = "sound",       label = "Sound effects",   values = VOLUMES,          names = VOLUME_NAMES, default = 0.75 },
     { key = "fullscreen",  label = "Fullscreen",      values = { false, true },  names = { "Off", "On" } },
     { key = "crt",         label = "CRT effect",      values = { true, false },  names = { "On", "Off" } },
     { key = "screenShake", label = "Screen shake",    values = { true, false },  names = { "On", "Off" } },
     { key = "animSpeed",   label = "Animation speed", values = { 1, 1.5, 2 },    names = { "Normal", "Fast", "Faster" } },
-    { key = "cardBack",    label = "Card back",       values = { 1, 2, 3, 4, 5, 6, 7, 8 },
-      names = { "Red", "Blue", "Orange", "Green", "Black", "Purple", "Galaxy", "Zodiac" } },
+    { key = "cardBack",    label = "Card back",       values = CARD_BACKS,       names = CARD_BACK_NAMES },
     { key = "showFps",     label = "Show FPS",        values = { false, true },  names = { "Off", "On" } },
 }
 
@@ -95,6 +107,20 @@ function Settings:displayValue(key)
         end
     end
     return tostring(self.values[key])
+end
+
+-- Explanation of the current value, for options that have `details`.
+function Settings:details(key)
+    local option = self:option(key)
+    if not option.details then
+        return nil
+    end
+    for i, value in ipairs(option.values) do
+        if value == self.values[key] then
+            return option.details[i]
+        end
+    end
+    return nil
 end
 
 return Settings

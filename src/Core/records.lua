@@ -1,6 +1,7 @@
 --[[
     Records
     Lifetime statistics across runs (runs played, wins, best score), persisted between sessions.
+    Every run counts towards runs played and escapes; only ranked runs (Difficult) can set the best score.
 ]]
 
 local Storage = require("src.Core.storage")
@@ -27,14 +28,15 @@ function Records:get(key)
     return self.values[key]
 end
 
--- Stores the result of a finished run. Returns true when the score is a new personal best.
-function Records:registerRun(didWin, score)
+-- Stores the result of a finished run. Returns true when the score is a new personal best,
+-- which only ranked runs can set.
+function Records:registerRun(didWin, score, ranked)
     local values = self.values
     values.gamesPlayed = values.gamesPlayed + 1
     if didWin then
         values.gamesWon = values.gamesWon + 1
     end
-    local isBest = not values.hasBestScore or score > values.bestScore
+    local isBest = ranked == true and (not values.hasBestScore or score > values.bestScore)
     if isBest then
         values.hasBestScore = true
         values.bestScore = score

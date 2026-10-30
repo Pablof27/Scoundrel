@@ -8,10 +8,12 @@ Player.__index = Player
 
 local MAX_LIFES = Constants.MAX_LIFES
 
-function Player:new()
+-- weaponSlaysEqual: weapons can also slay a monster as strong as the last one they slew (Easy).
+function Player:new(weaponSlaysEqual)
     local o = setmetatable({}, self)
     o.lifes = MAX_LIFES
     o.armor = nil
+    o.weaponSlaysEqual = weaponSlaysEqual == true
     return o
 end
 
@@ -57,7 +59,8 @@ function Player:takeDamage(card, useArmor)
     return { card }, damage, false
 end
 
--- Monsters must be strictly below this value to be fought with the weapon (nil = any monster).
+-- Value of the last monster slain with the weapon (nil = any monster). Monsters must be strictly
+-- below it to be fought with the weapon, or at most equal to it with weaponSlaysEqual.
 function Player:armorLimit()
     if not self:hasArmor() or #self.armor.defendedCards == 0 then
         return nil
@@ -73,10 +76,14 @@ function Player:canUseArmor(card)
     if not self:hasArmor() then
         return false
     end
-    if #self.armor.defendedCards == 0 then
+    local limit = self:armorLimit()
+    if limit == nil then
         return true
     end
-    return self.armor.defendedCards[#self.armor.defendedCards].value > card.value
+    if self.weaponSlaysEqual then
+        return card.value <= limit
+    end
+    return card.value < limit
 end
 
 return Player

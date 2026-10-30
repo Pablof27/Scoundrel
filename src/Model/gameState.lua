@@ -13,13 +13,16 @@ GameState.__index = GameState
 
 local CARDS_PER_ROOM = Constants.CARDS_PER_ROOM
 local MAX_LIFES      = Constants.MAX_LIFES
+local DIFFICULTIES   = Constants.DIFFICULTIES
 
-function GameState:new()
+-- difficulty: key of one of Constants.DIFFICULTIES (defaults to Constants.DEFAULT_DIFFICULTY).
+function GameState:new(difficulty)
     local o = setmetatable({}, self)
+    o.difficulty  = DIFFICULTIES[difficulty] or DIFFICULTIES[Constants.DEFAULT_DIFFICULTY]
     o.discardPile = {}
     o.drawPile    = Deck:new()
     o.room        = Room:new(o.drawPile:drawCards(CARDS_PER_ROOM))
-    o.player      = Player:new()
+    o.player      = Player:new(o.difficulty.weaponSlaysEqual)
     o.skippedLast = false
     o.errorMsg    = nil
     o.canUndo     = false
@@ -76,7 +79,7 @@ end
 
 function GameState:nextRoomIfPossible()
     if not self:canGoNextRoom() then
-        self.errorMsg = "Cannot proceed to next room: one card must remain and the deck must not be empty"
+        self.errorMsg = "Cannot proceed to next room: one card must remain and the dungeon must be able to deal a room"
         return false
     end
     self.skippedLast = false
@@ -87,20 +90,31 @@ function GameState:nextRoomIfPossible()
     return true
 end
 
-function GameState:canGoNextRoom()
-    return #self.room.cards == 1 and not self.drawPile:isEmpty()
+-- Whether the dungeon can deal the next room. When the whole dungeon doesn't have to be cleared,
+-- only full rooms are dealt: the run ends once there are too few cards left to fill one.
+function GameState:canDealRoom()
+    if self.difficulty.clearDungeon then
+        return not self.drawPile:isEmpty()
+    end
+    return self.drawPile:remainingCards() >= CARDS_PER_ROOM - 1
 end
 
--- The last card of a room always stays for the next one, except in the final room.
+function GameState:canGoNextRoom()
+    return #self.room.cards == 1 and self:canDealRoom()
+end
+
+-- The last card of a room always stays for the next one, except in the final room of a run
+-- that must clear the whole dungeon.
 function GameState:canPlayCard(card)
     if not self.room:contains(card) then
         return false
     end
-    return #self.room.cards > 1 or self.drawPile:isEmpty()
+    return #self.room.cards > 1 or (self.difficulty.clearDungeon and self:isFinalRoom())
 end
 
+-- No room can be dealt after this one.
 function GameState:isFinalRoom()
-    return self.drawPile:isEmpty()
+    return not self:canDealRoom()
 end
 
 --[[
@@ -196,9 +210,18 @@ function GameState:isPlayerDead()
     return self.player.lifes <= 0
 end
 
--- The dungeon is cleared once every card has been drawn and resolved.
+--[[
+    Clearing the whole dungeon: escaped once every card has been drawn and resolved.
+    Otherwise: escaped once the final room is down to the card that would stay for the next room.
+]]
 function GameState:isVictory()
-    return not self:isPlayerDead() and self.drawPile:isEmpty() and #self.room.cards == 0
+    if self:isPlayerDead() or not self:isFinalRoom() then
+        return false
+    end
+    if self.difficulty.clearDungeon then
+        return #self.room.cards == 0
+    end
+    return #self.room.cards <= 1
 end
 
 function GameState:isOver()

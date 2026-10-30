@@ -1,7 +1,7 @@
 --[[
     SidebarView
     Left info panel: health (with a live preview of the hovered action), room info,
-    potion availability and the statistics of the current run.
+    potion availability and the statistics (and difficulty) of the current run.
 ]]
 
 local Anim = require("src.View.anim")
@@ -121,6 +121,7 @@ function SidebarView:render(gameState, runTime)
     local statsH = 20 + #self.STAT_ROWS * ROW_HEIGHT
     UI.box(bx, statsY, bw, statsH, C.panelDark, { radius = 6 })
     UI.text("RUN STATS", bx + 7, statsY + 5, fonts.tiny, C.textDim, { shadow = false })
+    self:renderDifficulty(gameState.difficulty, bx + bw - 5, statsY + 3)
     for i, row in ipairs(self.STAT_ROWS) do
         local rowY = statsY + 17 + (i - 1) * ROW_HEIGHT
         UI.text(row.label, bx + 7, rowY, fonts.small, C.textDim)
@@ -130,6 +131,15 @@ function SidebarView:render(gameState, runTime)
         UI.textCentered(value, valueX, rowY + 6, fonts.small, juice and C.gold or C.text,
             { scale = 1 + (juice and juice.scale or 0), r = juice and juice.r or 0 })
     end
+end
+
+-- Tag with the run's difficulty, right-aligned on `right`.
+function SidebarView:renderDifficulty(difficulty, right, y)
+    local font = self.assets.fonts.tiny
+    local label = difficulty.name:upper()
+    local w = font:getWidth(label) + 8
+    UI.box(right - w, y, w, 11, UI.colors[difficulty.color], { radius = 3 })
+    UI.text(label, right - w + 4, y + 2, font, UI.colors.text, { shadow = false })
 end
 
 function SidebarView:renderTitle(cx, cy)

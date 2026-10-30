@@ -6,22 +6,23 @@ A single-player roguelike card game built with [LÖVE2D](https://love2d.org/) an
 
 ## Features
 
-- Home screen with an illustrated **How to Play** tutorial and **Settings** (music and sound volume, fullscreen, CRT effect, screen shake, animation speed, card back, FPS counter) saved between sessions
+- Three difficulty levels (**Easy**, **Normal**, **Difficult**), chosen in Settings and applied to every new run
+- Home screen with an illustrated **How to Play** tutorial and **Settings** (difficulty, music and sound volume, fullscreen, CRT effect, screen shake, animation speed, card back, FPS counter) saved between sessions
 - Procedurally generated audio: a looping dungeon soundtrack and every sound effect are synthesized in code at startup (no audio files)
 - Balatro-style card feel: spring physics, "juice" pops, idle sway, 3D tilt towards the mouse, dealing/flipping/burning animations, particles and screen shake
 - One-click play with previews: hovering a card shows exactly what it will do (damage, healing, weapon reach) on the card's action tabs, in the health bar and in a hint line
 - Explicit **WEAPON** / **FISTS** choice for monsters, a **FLEE** button that explains why it is unavailable, and the next room is dealt automatically
-- Run stats panel (health, room, cards left, time, monsters and bosses slain, damage taken/blocked, potions, weapons, rooms fled)
-- End-of-run summary with the official Scoundrel scoring and your personal best
+- Run stats panel (health, room, cards left, time, difficulty, monsters and bosses slain, damage taken/blocked, potions, weapons, rooms fled)
+- End-of-run summary with the official Scoundrel scoring and your personal best (set by Difficult runs)
 - Undo for the cards resolved in the current room
 - Pixel art card sprites, GLSL shaders (card tilt + dissolve, animated background, CRT post-processing)
 - Event-driven MVC architecture with an EventBus
 
 ## How to Play
 
-**Goal:** Resolve every card of the dungeon before your health (20) reaches 0.
+**Goal:** Make it through the dungeon before your health (20) reaches 0. On **Difficult** you must resolve every card; on **Easy** and **Normal** you escape once the dungeon can't fill another room (see [Difficulty](#difficulty)).
 
-**Rooms:** Each room deals 4 cards. Resolve 3 of them in any order — the 4th stays and becomes part of the next room, which is dealt automatically. In the final room (empty dungeon) every remaining card must be resolved.
+**Rooms:** Each room deals 4 cards. Resolve 3 of them in any order — the 4th stays and becomes part of the next room, which is dealt automatically. On Difficult, in the final room (empty dungeon) every remaining card must be resolved.
 
 ### Card Types
 
@@ -37,16 +38,29 @@ The dungeon has 44 cards: every club and spade, plus hearts and diamonds from 2 
 
 - **Barehanded (FISTS):** Take the monster's full value as damage.
 - **With a weapon:** Take `max(0, monster − weapon)` damage. The monster is stacked on the weapon.
-- **Weapon reach:** Once a weapon has slain a monster, it can only be used against monsters weaker than the last one it slew. You can always fight barehanded to keep the weapon fresh.
+- **Weapon reach:** Once a weapon has slain a monster, it can only be used against monsters weaker than the last one it slew (on Easy, also as strong as it). You can always fight barehanded to keep the weapon fresh.
 
 ### Flee
 
 Before resolving any card of a room you may flee: its 4 cards go to the bottom of the dungeon and a new room is dealt. You cannot flee two rooms in a row.
 
+### Difficulty
+
+Choose it in **Settings**; it applies from the next run (the sidebar and the end-of-run summary show the difficulty of the current one).
+
+| Difficulty | End of the run | Weapon reach | Best score |
+|------------|----------------|--------------|------------|
+| **Easy** | You escape when the room needs refilling and the dungeon has too few cards left to fill it | Monsters weaker than **or as strong as** the last one slain | No |
+| **Normal** | Same as Easy | Monsters weaker than the last one slain | No |
+| **Difficult** (default) | You escape once every card has been resolved — the classic rules | Monsters weaker than the last one slain | Yes |
+
+With the 44-card dungeon, Easy and Normal runs end with one card left in the room and one in the dungeon.
+
 ### Score
 
 - **Escaped:** your remaining health (plus the potion's value if your last card was a potion drunk at full health).
 - **Died:** your health minus the value of every monster left in the dungeon.
+- Only **Difficult** runs can set a new best score; every run counts towards runs played and escapes.
 
 ## Controls
 
@@ -108,9 +122,9 @@ src/
     sounds.lua            — Sound effect recipes
     music.lua             — Music loop composition (rendered in a background thread)
     EventBus.lua          — Publish/subscribe event system
-    constants.lua         — Game configuration values
-    settings.lua          — User preferences (persisted)
-    records.lua           — Lifetime records: runs, wins, best score (persisted)
+    constants.lua         — Game configuration values (including the difficulty levels and their rules)
+    settings.lua          — User preferences, including the difficulty (persisted)
+    records.lua           — Lifetime records: runs, wins, best score of Difficult runs (persisted)
     storage.lua           — Safe key/value persistence in the save directory
     utils.lua             — Utility functions
   Controller/
@@ -120,7 +134,7 @@ src/
   Model/
     card.lua              — Card (suit + value)
     deck.lua              — Deck of 44 cards with shuffle/draw
-    gameState.lua         — Core rules, previews, run stats and scoring
+    gameState.lua         — Core rules (per difficulty), previews, run stats and scoring
     player.lua            — Player health and weapon
     room.lua              — Current room of 4 cards
   View/

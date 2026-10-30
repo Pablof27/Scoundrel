@@ -37,6 +37,11 @@ local FLEE_BLOCKED_HINTS = {
     fledLast    = "You fled the last room. You can't flee twice in a row.",
 }
 
+-- Monsters a weapon can still slay: "below Q (12)", or "up to Q (12)" when it also slays equals (Easy).
+local function reachLabel(player, value)
+    return (player.weaponSlaysEqual and "up to " or "below ") .. UI.valueLabel(value)
+end
+
 -- Screen-edge glow used for damage/heal flashes.
 local function newVignetteMesh(width, height, inset)
     local outer, inner = { 1, 1, 1, 1 }, { 1, 1, 1, 0 }
@@ -956,7 +961,7 @@ function GameView:renderWeaponZone()
     local weapon = player.armor.card
     local limit = player:armorLimit()
     UI.text("POWER " .. weapon.value, left, infoY, fonts.small, C.orange)
-    local reach = limit and ("Slays monsters below " .. UI.valueLabel(limit)) or "Slays any monster"
+    local reach = limit and ("Slays monsters " .. reachLabel(player, limit)) or "Slays any monster"
     UI.text(reach, left, infoY + 14, fonts.small, C.text)
     if #player.armor.defendedCards == 0 then
         UI.text("Monsters slain with this weapon\nstack here and lower its reach.", L.weaponX + L.cardW / 2 + 14,
@@ -1017,7 +1022,12 @@ function GameView:hintText()
         return "Nothing to undo. Only cards resolved in the current room can be undone.", C.textDim
     end
     if self.deck.hoovered then
-        return "The dungeon: " .. #state.drawPile.cards .. " cards left. Every new room is dealt from here."
+        local left = #state.drawPile.cards
+        if not state.difficulty.clearDungeon and state:isFinalRoom() then
+            return "The dungeon: " .. left .. (left == 1 and " card" or " cards") ..
+                " left, too few to fill another room. This room is the last one."
+        end
+        return "The dungeon: " .. left .. " cards left. Every new room is dealt from here."
     end
 
     local action = self:hoveredAction()
@@ -1029,7 +1039,12 @@ function GameView:hintText()
         return "Room cleared! The last card stays for the next room."
     end
     if state:isFinalRoom() then
-        return "Final room! Resolve every card left to escape the dungeon.", C.gold
+        if state.difficulty.clearDungeon then
+            return "Final room! Resolve every card left to escape the dungeon.", C.gold
+        end
+        local toResolve = #state.room.cards - 1
+        return "Final room! Resolve " .. toResolve .. (toResolve == 1 and " more card" or " more cards") ..
+            " to escape: the dungeon can't fill another room.", C.gold
     end
     local toResolve = #state.room.cards - 1
     if toResolve >= CARDS_PER_ROOM - 1 then
@@ -1076,13 +1091,13 @@ function GameView:describe(action)
         local cost = preview.damage > 0 and
             ("take " .. preview.damage .. " damage (" .. card.value .. " - " .. weaponValue .. ")") or
             ("no damage, your " .. weaponValue .. " beats its " .. card.value)
-        text = "Weapon: " .. cost .. ". It will then only slay monsters below " .. UI.valueLabel(card.value) .. "."
+        text = "Weapon: " .. cost .. ". It will then only slay monsters " .. reachLabel(player, card.value) .. "."
     elseif action.alternative then
         text = "Barehanded: take all " .. preview.damage .. " damage, but your weapon stays untouched."
     elseif not player:hasArmor() then
         text = "No weapon: fight barehanded and take " .. preview.damage .. " damage."
     else
-        text = "Your weapon only slays monsters below " .. UI.valueLabel(player:armorLimit()) ..
+        text = "Your weapon only slays monsters " .. reachLabel(player, player:armorLimit()) ..
             ". Fight barehanded: " .. preview.damage .. " damage."
     end
     if preview.lethal then

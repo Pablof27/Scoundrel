@@ -1,7 +1,7 @@
 --[[
     EndGameView
     End-of-run overlay drawn on top of the final board: result, score (official Scoundrel
-    scoring), personal best and the statistics of the run.
+    scoring), personal best (Difficult runs only), difficulty and the statistics of the run.
 ]]
 
 local SidebarView = require("src.View.sidebarView")
@@ -101,8 +101,15 @@ function EndGameView:render()
     local juice = self.titleJuice
     UI.textCentered(title, cx, y + 28, fonts.large, self.didWin and C.gold or C.red,
         { scale = 1 + (juice and juice.scale or 0), r = juice and juice.r or 0, shadowDepth = 3 })
-    local subtitle = self.didWin and "You made it through the whole dungeon." or
-        ("The dungeon claimed you in room " .. self.gameState.roomNumber .. ".")
+    local difficulty = self.gameState.difficulty
+    local subtitle
+    if not self.didWin then
+        subtitle = "The dungeon claimed you in room " .. self.gameState.roomNumber .. "."
+    elseif difficulty.clearDungeon then
+        subtitle = "You made it through the whole dungeon."
+    else
+        subtitle = "Too few cards were left for another room: you made it out."
+    end
     UI.textCentered(subtitle, cx, y + 54, fonts.small, C.textDim)
 
     UI.box(p.x + 20, y + 68, p.w - 40, 44, C.panelDark, { radius = 6 })
@@ -114,10 +121,14 @@ function EndGameView:render()
         local pulse = 1 + 0.06 * math.sin(self.time * 6)
         UI.box(p.x + p.w - 112, y + 80, 80, 18, C.gold, { radius = 4, depth = 2 })
         UI.textCentered("NEW BEST!", p.x + p.w - 72, y + 89, fonts.small, C.textDark, { scale = pulse, shadow = false })
+    elseif not difficulty.ranked then
+        UI.text("Only Difficult runs\nset a best score", p.x + p.w - 150, y + 77, fonts.small, C.textDim,
+            { width = 120, align = "right" })
     end
 
     local stats = self.gameState.stats
     local rows = {
+        { label = "Difficulty", value = difficulty.name, color = C[difficulty.color] },
         { label = "Rooms explored", value = self.gameState.roomNumber },
         { label = "Time", value = UI.formatTime(self.runTime) },
     }
@@ -134,7 +145,7 @@ function EndGameView:render()
         local rowY = statsY + 7 + ((i - 1) % perColumn) * ROW_H
         UI.text(row.label, rowX + 10, rowY, fonts.small, C.textDim)
         local value = tostring(row.value)
-        UI.text(value, rowX + columnW - 10 - fonts.small:getWidth(value), rowY, fonts.small, C.text)
+        UI.text(value, rowX + columnW - 10 - fonts.small:getWidth(value), rowY, fonts.small, row.color or C.text)
     end
 
     for _, button in ipairs(self.buttons) do
