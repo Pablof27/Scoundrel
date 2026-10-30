@@ -27,6 +27,16 @@ Settings.OPTIONS = {
     { key = "showFps",     label = "Show FPS",        values = { false, true },  names = { "Off", "On" } },
 }
 
+-- Browsers only allow fullscreen from a click on the page, so the web page has its own button instead.
+if Constants.IS_WEB then
+    for i, option in ipairs(Settings.OPTIONS) do
+        if option.key == "fullscreen" then
+            table.remove(Settings.OPTIONS, i)
+            break
+        end
+    end
+end
+
 local DEFAULTS = {}
 for _, option in ipairs(Settings.OPTIONS) do
     if option.default ~= nil then

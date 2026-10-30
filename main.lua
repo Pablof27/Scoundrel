@@ -138,8 +138,13 @@ function love.load()
     push:setupScreen(assets.WIDTH, assets.HEIGHT, assets.WIDTH * assets.SCALE, assets.HEIGHT * assets.SCALE, {
         vsync = true,
         fullscreen = false,
-        resizable = false
+        -- On the web the canvas follows the size of the page (see web/index.html).
+        resizable = Constants.IS_WEB
     })
+    if Constants.IS_WEB then
+        -- The canvas takes the page's size when the window is created, without a resize event.
+        push:resize(love.graphics.getDimensions())
+    end
     if settings:get("fullscreen") then
         push:switchFullscreen()
     end

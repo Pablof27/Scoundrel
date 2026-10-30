@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scoundrel</title>
+  <meta name="description" content="A roguelike dungeon crawl played with a deck of cards.">
+  <link rel="icon" type="image/png" href="icon.png">
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    /* The game letterboxes itself, so the canvas fills the page.
+       It must not have a border or padding, or the mouse coordinates are off. */
+    #canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      border: 0;
+      padding: 0;
+    }
+
+    #overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #1f2f29;
+      color: #e8f4ee;
+      font: 20px/1.4 system-ui, sans-serif;
+      text-align: center;
+    }
+
+    #overlay[hidden] {
+      display: none;
+    }
+
+    #overlay img {
+      width: 96px;
+      image-rendering: pixelated;
+    }
+
+    #fullscreen {
+      position: fixed;
+      right: 12px;
+      bottom: 12px;
+      padding: 6px;
+      border: 0;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.5);
+      color: #fff;
+      line-height: 0;
+      opacity: 0.4;
+      cursor: pointer;
+    }
+
+    #fullscreen:hover {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+  <div id="overlay">
+    <img src="icon.png" alt="">
+    <p id="status">Loading…</p>
+  </div>
+  <button id="fullscreen" type="button" title="Fullscreen" aria-label="Toggle fullscreen" hidden>
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    </svg>
+  </button>
+
+  <script>
+    var overlay = document.getElementById('overlay');
+    var started = false;
+
+    function showError(message) {
+      document.getElementById('status').textContent = message;
+      overlay.hidden = false;
+    }
+
+    var Module = {
+      arguments: ['./game.love'],
+      INITIAL_MEMORY: 16777216,
+      canvas: document.getElementById('canvas'),
+      printErr: console.error.bind(console),
+      // Versioned URLs (see web/build.sh), so a new deploy is never mixed with files cached from the last one.
+      locateFile: function (path, prefix) {
+        return (prefix || '') + path + '?v=__BUILD__';
+      },
+      // Runs after every frame. The first one comes once love.load has finished.
+      postMainLoop: function () {
+        started = true;
+        overlay.hidden = true;
+        Module.postMainLoop = null;
+      },
+      onAbort: function () {
+        showError('The game crashed. Reload the page to try again.');
+      }
+    };
+
+    window.addEventListener('error', function () {
+      if (!started) {
+        showError('The game could not be loaded. Reload the page to try again.');
+      }
+    });
+
+    Module.canvas.addEventListener('webglcontextlost', function (event) {
+      event.preventDefault();
+      showError('The graphics context was lost. Reload the page to continue.');
+    });
+
+    // love.js only writes saves to IndexedDB when the page unloads, which mobile browsers often skip.
+    // Module.FS is exposed by web/build.sh.
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden' && Module.FS) {
+        Module.FS.syncfs(false, function (error) {
+          if (error) console.error(error);
+        });
+      }
+    });
+
+    // SDL treats any fullscreen as one it requested and then stops resizing the canvas with the page,
+    // so the fullscreen events are kept from it: for the game it's just a bigger window.
+    ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (type) {
+      window.addEventListener(type, function (event) {
+        event.stopImmediatePropagation();
+      }, true);
+    });
+
+    var fullscreenButton = document.getElementById('fullscreen');
+    if (document.fullscreenEnabled) {
+      fullscreenButton.hidden = false;
+      // Never take the keyboard focus: Space and Enter belong to the game.
+      fullscreenButton.addEventListener('mousedown', function (event) {
+        event.preventDefault();
+      });
+      fullscreenButton.addEventListener('click', function () {
+        if (document.fullscreenElement) {
+          document.exitFullscreen();
+        } else {
+          document.documentElement.requestFullscreen();
+        }
+      });
+    }
+  </script>
+  <script src="game.js?v=__BUILD__"></script>
+  <script async src="love.js?v=__BUILD__" onload="Love(Module)"
+          onerror="showError('The game could not be loaded. Reload the page to try again.')"></script>
+</body>
+</html>

@@ -2,6 +2,8 @@
 
 A single-player roguelike card game built with [LÖVE2D](https://love2d.org/) and Lua. Based on the solo card game *Scoundrel*, where you navigate a dungeon represented by a standard deck of playing cards.
 
+**[Play it in your browser](https://pablof27.github.io/Scoundrel/)**
+
 ## Features
 
 - Home screen with an illustrated **How to Play** tutorial and **Settings** (music and sound volume, fullscreen, CRT effect, screen shake, animation speed, card back, FPS counter) saved between sessions
@@ -77,6 +79,23 @@ love .
 
 On macOS you can also drag the project folder onto the LÖVE application.
 
+### Web Version
+
+Every push to `main` builds the game with [love.js](https://github.com/Davidobot/love.js) and publishes it to GitHub Pages ([deploy-web.yml](.github/workflows/deploy-web.yml)). This needs **Settings → Pages → Source** set to **GitHub Actions** in the repository.
+
+To build it locally (needs Node.js and `zip`):
+
+```bash
+web/build.sh                          # outputs dist/web
+python3 -m http.server -d dist/web    # then open http://localhost:8000
+```
+
+The web version uses love.js's compatibility mode, because GitHub Pages can't send the headers its threaded mode needs. Keep in mind:
+
+- It runs PUC Lua 5.1, not LuaJIT: `goto` and other LuaJIT extensions break it. The workflow checks the syntax with `luac5.1` before deploying.
+- `love.thread` is unavailable, so the music is rendered on the main thread while the game loads.
+- The page owns the window: the game has no Quit button or Fullscreen setting there, and the page has its own fullscreen button.
+
 ## Project Structure
 
 ```
@@ -125,6 +144,11 @@ lib/
   timer.lua               — Tweens and timers
 resources/                — Sprites and fonts
 shaders/                  — GLSL fragment shaders (card.fs: tilt + dissolve)
+web/
+  build.sh                — Builds the web version into dist/web with love.js
+  index.html              — Page hosting the web version
+.github/workflows/
+  deploy-web.yml          — Publishes the web version to GitHub Pages on every push to main
 ```
 
 ## Architecture
@@ -141,5 +165,6 @@ All modules are wired together in `main.lua` (the composition root). See [docume
 
 - [Lua](https://www.lua.org/) — Programming language
 - [LÖVE2D](https://love2d.org/) — 2D game framework
+- [love.js](https://github.com/Davidobot/love.js) — LÖVE for the web
 - [push](https://github.com/Ulydev/push) — Resolution-independent rendering
 - [timer](https://github.com/vrld/hump) — Tweens and delayed calls

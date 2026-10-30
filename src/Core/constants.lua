@@ -10,6 +10,9 @@ Constants.WIDTH  = 400 * 16 / 9
 Constants.HEIGHT = 400
 Constants.SCALE  = 2
 
+-- Browser build (love.js, see web/): the page owns the window, so the game can't quit or go fullscreen.
+Constants.IS_WEB = love.system.getOS() == "Web"
+
 -- Background shader colours
 Constants.BACKGROUND_COLOR1 = "FF56CDAD"
 Constants.BACKGROUND_COLOR2 = "FF428D74"

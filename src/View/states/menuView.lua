@@ -20,8 +20,11 @@ local BUTTONS = {
     { text = "PLAY",        color = "blue",   width = 110, target = "newGame" },
     { text = "HOW TO PLAY", color = "orange", width = 140, target = "rules" },
     { text = "SETTINGS",    color = "green",  width = 120, target = "settings" },
-    { text = "QUIT",        color = "red",    width = 90,  target = "quit" },
 }
+-- A web page can't be closed by the game.
+if not Constants.IS_WEB then
+    table.insert(BUTTONS, { text = "QUIT", color = "red", width = 90, target = "quit" })
+end
 
 function MenuView:new(context)
     local o = setmetatable({}, self)
@@ -167,7 +170,7 @@ end
 function MenuView:onKeyPressed(key)
     if key == "return" or key == "space" then
         self.eventBus:publish("navigate", "newGame")
-    elseif key == "escape" then
+    elseif key == "escape" and not Constants.IS_WEB then
         self.eventBus:publish("navigate", "quit")
     end
 end

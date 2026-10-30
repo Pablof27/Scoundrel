@@ -5,6 +5,7 @@
 ]]
 
 local Sounds = require("src.Core.sounds")
+local Music  = require("src.Core.music")
 
 local Audio = {}
 Audio.__index = Audio
@@ -32,7 +33,10 @@ function Audio:load()
     for name, data in pairs(Sounds.generate()) do
         self.pools[name] = { love.audio.newSource(data, "static") }
     end
-    love.thread.newThread(MUSIC_THREAD):start()
+    -- Threads are unavailable in the web build, where the music is rendered here instead.
+    if not love.thread.newThread(MUSIC_THREAD):start() then
+        love.thread.getChannel("music"):push(Music.generate())
+    end
 end
 
 function Audio:update()

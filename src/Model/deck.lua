@@ -19,12 +19,10 @@ function Deck:new()
     local o = setmetatable({}, self)
     o.cards = {}
     for i = 0, 3 do
-        for value = 2, 14 do
-            if (i == suits.heart or i == suits.diamond) and value > 10 then
-                goto continue
-            end
+        -- Hearts and diamonds have no face cards or aces.
+        local highest = (i == suits.heart or i == suits.diamond) and 10 or 14
+        for value = 2, highest do
             table.insert(o.cards, Card:new(i, value))
-            ::continue::
         end
     end
     o:shuffle()
