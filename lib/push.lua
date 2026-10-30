@@ -1,4 +1,5 @@
 -- push.lua v0.4
+-- Modified for Scoundrel: the canvases have the screen's pixel density (see push:newCanvas).
 
 -- Copyright (c) 2020 Ulysse Ramage
 -- Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -71,6 +72,7 @@ function push:setupCanvas(canvases)
   table.insert(canvases, { name = "_render", private = true }) --final render
 
   self._canvas = true
+  self._canvasDensity = self:getPixelDensity()
   self.canvases = {}
 
   for i = 1, #canvases do
@@ -84,9 +86,27 @@ function push:addCanvas(params)
     name = params.name,
     private = params.private,
     shader = params.shader,
-    canvas = love.graphics.newCanvas(self._WWIDTH, self._WHEIGHT),
+    canvas = self:newCanvas(),
     stencil = params.stencil or self._stencil
   })
+end
+--canvases have the pixel density of the screen, so what is drawn into them (text above all) is not enlarged afterwards
+function push:newCanvas()
+  return love.graphics.newCanvas(self._WWIDTH, self._WHEIGHT, love11 and { dpiscale = self._canvasDensity } or nil)
+end
+--screen pixels per game pixel
+function push:getPixelDensity()
+  return love11 and self._SCALE.x * getDPI() or 1
+end
+--re-creates the canvases when the density changes: window resized or moved to another screen
+function push:updateCanvasDensity()
+  local density = self:getPixelDensity()
+  if density <= 0 or density == self._canvasDensity then return end --a minimized window has no size
+  self._canvasDensity = density
+  for i = 1, #self.canvases do
+    self.canvases[i].canvas:release()
+    self.canvases[i].canvas = self:newCanvas()
+  end
 end
 
 function push:setCanvas(name)
@@ -137,6 +157,7 @@ end
 
 function push:start()
   if self._canvas then
+    self:updateCanvasDensity()
     love.graphics.push()
     love.graphics.setCanvas({ self.canvases[1].canvas, stencil = self.canvases[1].stencil })
 
@@ -205,8 +226,13 @@ function push:finish(shader)
     love.graphics.setCanvas()
     
     --draw render
-    love.graphics.translate(self._OFFSET.x, self._OFFSET.y)
+    --on whole screen pixels, so the canvas (which has the screen's pixel density) is copied 1:1
+    local dpi = love11 and getDPI() or 1
+    love.graphics.translate(math.floor(self._OFFSET.x * dpi + 0.5) / dpi, math.floor(self._OFFSET.y * dpi + 0.5) / dpi)
     local shader = shader or _render.shader
+    --a shader such as a CRT effect warps the image, which then needs smooth resampling
+    local filter = shader and "linear" or "nearest"
+    _render.canvas:setFilter(filter, filter)
     love.graphics.push()
     love.graphics.scale(self._SCALE.x, self._SCALE.y)
     self:applyShaders(_render.canvas, type(shader) == "table" and shader or { shader })

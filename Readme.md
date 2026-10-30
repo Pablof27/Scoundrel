@@ -117,6 +117,7 @@ main.lua                  — Composition root, wires all modules and resolves s
 src/
   Core/
     AssetManager.lua      — Asset loading (textures, baked card atlas, fonts, shaders, audio)
+    font.lua              — Fonts rasterized at the screen's pixel density, so text stays sharp at any size
     audio.lua             — Plays sound effects and the music loop at the chosen volumes
     synth.lua             — Tiny offline synthesizer (oscillators, filtered noise, echo)
     sounds.lua            — Sound effect recipes
@@ -154,7 +155,7 @@ src/
       endGameView.lua     — End-of-run summary
       transitionView.lua  — Fade transition overlay
 lib/
-  push.lua                — Resolution-independent rendering
+  push.lua                — Resolution-independent rendering (modified to render at the screen's pixel density)
   timer.lua               — Tweens and timers
 resources/                — Sprites and fonts
 shaders/                  — GLSL fragment shaders (card.fs: tilt + dissolve)

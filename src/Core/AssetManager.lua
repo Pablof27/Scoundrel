@@ -7,6 +7,7 @@
 require("src.Core.utils")
 
 local Audio = require("src.Core.audio")
+local Font  = require("src.Core.font")
 
 local AssetManager = {}
 AssetManager.__index = AssetManager
@@ -62,12 +63,12 @@ function AssetManager:load()
     )
     self:composeCardAtlas()
 
-    self.fonts.tiny   = love.graphics.newFont("resources/m6x11plus.ttf", 8)
-    self.fonts.small  = love.graphics.newFont("resources/m6x11plus.ttf", 12)
-    self.fonts.medium = love.graphics.newFont("resources/m6x11plus.ttf", 16)
-    self.fonts.big    = love.graphics.newFont("resources/m6x11plus.ttf", 24)
-    self.fonts.large  = love.graphics.newFont("resources/m6x11plus.ttf", 32)
-    self.fonts.title  = love.graphics.newFont("resources/m6x11plus.ttf", 64)
+    self.fonts.tiny   = Font:new("resources/m6x11plus.ttf", 8)
+    self.fonts.small  = Font:new("resources/m6x11plus.ttf", 12)
+    self.fonts.medium = Font:new("resources/m6x11plus.ttf", 16)
+    self.fonts.big    = Font:new("resources/m6x11plus.ttf", 24)
+    self.fonts.large  = Font:new("resources/m6x11plus.ttf", 32)
+    self.fonts.title  = Font:new("resources/m6x11plus.ttf", 64)
 
     self.shaders.background = love.graphics.newShader("shaders/background.fs")
     self.shaders.CRT        = love.graphics.newShader("shaders/CRT.fs")
@@ -145,6 +146,13 @@ function AssetManager:setupShaders()
     self.shaders.CRT:send("glitch_intensity", 0)
     self.shaders.CRT:send("scanlines", 450.0)
     self.shaders.card:send("image_details", { self.textures.cards:getDimensions() })
+end
+
+-- Screen pixels per game pixel. Fonts are rasterized at this density to keep text sharp (see Font).
+function AssetManager:setPixelDensity(density)
+    for _, font in pairs(self.fonts) do
+        font:setPixelDensity(density)
+    end
 end
 
 function AssetManager:update(dt)

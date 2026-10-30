@@ -73,20 +73,19 @@ end
 function UI.text(text, x, y, font, color, opts)
     opts = opts or {}
     local alpha = opts.alpha or 1
-    love.graphics.setFont(font)
     if opts.shadow ~= false then
         love.graphics.setColor(0, 0, 0, 0.45 * alpha)
         if opts.width then
-            love.graphics.printf(text, x + 1, y + 1, opts.width, opts.align or "left")
+            font:printf(text, x + 1, y + 1, opts.width, opts.align or "left")
         else
-            love.graphics.print(text, x + 1, y + 1)
+            font:print(text, x + 1, y + 1)
         end
     end
     UI.setColor(color or UI.colors.text, alpha)
     if opts.width then
-        love.graphics.printf(text, x, y, opts.width, opts.align or "left")
+        font:printf(text, x, y, opts.width, opts.align or "left")
     else
-        love.graphics.print(text, x, y)
+        font:print(text, x, y)
     end
 end
 
@@ -97,24 +96,19 @@ function UI.textCentered(text, cx, cy, font, color, opts)
     local scale = opts.scale or 1
     local r = opts.r or 0
     local ox, oy = font:getWidth(text) / 2, font:getHeight() / 2
-    if scale == 1 and r == 0 then
-        -- Keep pixel fonts on whole pixels when they are not transformed.
-        cx, cy = math.floor(cx - ox + 0.5) + ox, math.floor(cy - oy + 0.5) + oy
-    end
-    love.graphics.setFont(font)
     if opts.shadow ~= false then
         local depth = opts.shadowDepth or 1
         love.graphics.setColor(0, 0, 0, 0.45 * alpha)
-        love.graphics.print(text, cx + depth, cy + depth, r, scale, scale, ox, oy)
+        font:print(text, cx + depth, cy + depth, r, scale, scale, ox, oy)
     end
     if opts.outline then
         love.graphics.setColor(0.08, 0.1, 0.11, 0.85 * alpha)
         for _, offset in ipairs({ { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } }) do
-            love.graphics.print(text, cx + offset[1], cy + offset[2], r, scale, scale, ox, oy)
+            font:print(text, cx + offset[1], cy + offset[2], r, scale, scale, ox, oy)
         end
     end
     UI.setColor(color or UI.colors.text, alpha)
-    love.graphics.print(text, cx, cy, r, scale, scale, ox, oy)
+    font:print(text, cx, cy, r, scale, scale, ox, oy)
 end
 
 -- Draws an icon from ui_assets.png (see AssetManager.ICONS) scaled to `size` pixels.

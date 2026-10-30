@@ -95,9 +95,8 @@ local function onSettingChanged(key, value)
 end
 
 local function displayFPS()
-    love.graphics.setFont(assets.fonts.tiny)
     love.graphics.setColor(1, 1, 1, 0.8)
-    love.graphics.print("FPS: " .. tostring(love.timer.getFPS()), assets.WIDTH - 44, 2)
+    assets.fonts.tiny:print("FPS: " .. tostring(love.timer.getFPS()), assets.WIDTH - 44, 2)
 end
 
 function love.load()
@@ -185,6 +184,9 @@ end
 
 function love.draw()
     push:apply("start")
+    -- push renders at the screen's pixel density (it changes with the window size and the screen),
+    -- and the text must be rasterized at that same density.
+    assets:setPixelDensity(push:getPixelDensity())
 
     stateStack:render()
     if transition then
