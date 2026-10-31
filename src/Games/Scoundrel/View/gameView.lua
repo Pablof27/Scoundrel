@@ -5,6 +5,8 @@
       (room slots, weapon, slain stack, deck), so every change - undo included - is animated.
     - Hovering a room card shows action tabs with the exact outcome and explains it in the
       hint line. Clicking the card performs its main action; clicking a tab performs that one.
+    - A touch screen has no hover and no right button, so there tapping a card performs its main
+      action and holding it opens the tabs: slide to one and let go, or lift the finger and tap one.
     - Once a single card is left the next room is dealt automatically.
 ]]
 
@@ -29,6 +31,9 @@ local SAFE_X, SAFE_Y = Constants.SAFE_X, Constants.SAFE_Y
 local TAB_HEIGHT, TAB_GAP = 18, 3
 local DEAL_INTERVAL       = 0.09
 local AUTO_ADVANCE_DELAY  = 0.75
+local HOLD_TIME           = 0.4  -- seconds a finger must stay on a card to open its tabs
+local TOUCH_SLOP          = 12   -- how far a finger may drift and still count as staying put
+local TOUCH_REACH         = 10   -- how far from a tab a finger still picks it
 
 local FLEE_BLOCKED_HINTS = {
     deckEmpty   = "The dungeon is empty: there is nowhere left to flee.",
@@ -51,6 +56,9 @@ function GameView:new(context, gameState)
     o.focusKey      = nil
     o.hoverTab      = nil
     o.tabReveal     = 0
+    o.touchMode     = false  -- the last press came from a touch screen
+    o.press         = nil    -- touch: finger on a card or tab { key, x, y, time, held, fromMenu }
+    o.menuKey       = nil    -- touch: card whose tabs are open
 
     o:computeLayout()
     local L = o.layout
@@ -313,6 +321,7 @@ end
 function GameView:onCardPlayed(gameState, outcome)
     self.state = gameState
     self.focusKey = nil
+    self:cancelTouch()
     local L, C = self.layout, UI.colors
     local fonts = self.assets.fonts
     local audio = self.assets.audio
@@ -414,6 +423,7 @@ function GameView:onRoomChanged(gameState, reason)
     end
     self.state = gameState
     self.focusKey = nil
+    self:cancelTouch()
     local dealt = self:sync({ exits = exits, dealDelay = dealDelay })
     self.lock = dealDelay + dealt * DEAL_INTERVAL + 0.25
 
@@ -425,6 +435,7 @@ end
 function GameView:onStateRestored(gameState)
     self.state = gameState
     self.focusKey = nil
+    self:cancelTouch()
     self.advanceToken = nil
     self.playToken = nil
     self:sync()
@@ -439,6 +450,7 @@ end
 function GameView:onEndGame(didWin, gameState)
     self.over = true
     self.focusKey = nil
+    self:cancelTouch()
     local L, C = self.layout, UI.colors
     local delay
     if didWin then
@@ -575,23 +587,60 @@ function GameView:tabRect(slot, index)
     return L.slotX[slot] - width / 2, L.tabsY + (index - 1) * (TAB_HEIGHT + TAB_GAP), width, TAB_HEIGHT
 end
 
+-- Area that picks a tab. A finger is far less precise than a mouse, so with touch the tabs reach further
+-- out and meet halfway across the gaps between them.
+function GameView:tabHitRect(slot, index, count)
+    local x, y, w, h = self:tabRect(slot, index)
+    if not self.touchMode then
+        return x, y, w, h + 2
+    end
+    local top = index == 1 and y - 6 or y - TAB_GAP / 2  -- the first one stops just short of the card
+    local bottom = y + h + (index == count and TOUCH_REACH or TAB_GAP / 2)
+    return x - TOUCH_REACH, top, w + 2 * TOUCH_REACH, bottom - top
+end
+
 function GameView:tabAt(key, mouseX, mouseY)
     local view = self.views[key]
     if not view or not view.slot then
         return nil
     end
-    for index = 1, #self:actionsFor(view.card) do
-        local x, y, w, h = self:tabRect(view.slot, index)
-        if mouseX >= x and mouseX <= x + w and mouseY >= y and mouseY <= y + h + 2 then
+    local count = #self:actionsFor(view.card)
+    for index = 1, count do
+        local x, y, w, h = self:tabHitRect(view.slot, index, count)
+        if mouseX >= x and mouseX <= x + w and mouseY >= y and mouseY <= y + h then
             return index
         end
     end
     return nil
 end
 
-function GameView:onMouseClick(mouseX, mouseY, button)
+-- Key of the room card under (x, y).
+function GameView:roomCardAt(x, y)
+    local found = nil
+    for slot = 1, CARDS_PER_ROOM do
+        local key = self.slots[slot]
+        local view = key and self.views[key]
+        if view and view.zone == "room" and view:contains(x, y) then
+            found = key
+        end
+    end
+    return found
+end
+
+function GameView:playAction(view, action)
+    view:juiceUp(0.2)
+    self.eventBus:publish("action", Actions.PlayCardAction:new(view.card, action.useArmor))
+end
+
+-- istouch: the press comes from a touch screen, where a press only starts a gesture (see onTouchPress).
+function GameView:onMouseClick(mouseX, mouseY, button, istouch)
     if self.over then
         return
+    end
+    self.touchMode = istouch == true
+    self.press = nil
+    if not self.touchMode then
+        self.menuKey = nil
     end
     for _, b in ipairs(self.buttons) do
         if b:onMouseClick(mouseX, mouseY) then
@@ -599,6 +648,10 @@ function GameView:onMouseClick(mouseX, mouseY, button)
         end
     end
     if self:isBusy() then
+        return
+    end
+    if self.touchMode then
+        self:onTouchPress(mouseX, mouseY)
         return
     end
     -- Resolve the hover at the click position, in case the mouse moved since the last update.
@@ -610,9 +663,78 @@ function GameView:onMouseClick(mouseX, mouseY, button)
     local actions = self:actionsFor(view.card)
     local tab = self:tabAt(self.focusKey, mouseX, mouseY)
     -- Card body: main action; right click: the alternative (fight barehanded).
-    local action = actions[tab or (button == 2 and #actions or 1)]
-    view:juiceUp(0.2)
-    self.eventBus:publish("action", Actions.PlayCardAction:new(view.card, action.useArmor))
+    self:playAction(view, actions[tab or (button == 2 and #actions or 1)])
+end
+
+--[[
+    Touch gestures: a press only starts one, onMouseReleased and updateHold complete it.
+      tap a card    its main action
+      hold a card   opens its tabs: let go on one to pick it, or lift the finger from the card to keep them open
+      press a tab   (of open tabs) let go on a tab to pick it; anywhere else closes the tabs
+    A press anywhere else closes open tabs.
+]]
+function GameView:onTouchPress(x, y)
+    local press = { x = x, y = y, time = love.timer.getTime() }
+    if self.menuKey and self:tabAt(self.menuKey, x, y) then
+        press.key = self.menuKey
+        press.fromMenu = true
+        self.press = press
+        return
+    end
+    self.menuKey = nil
+    press.key = self:roomCardAt(x, y)
+    if press.key then
+        self.press = press
+    end
+end
+
+function GameView:onMouseReleased(mouseX, mouseY)
+    local press = self.press
+    self.press = nil
+    if not press or self:isBusy() then
+        return
+    end
+    local view = self.views[press.key]
+    if not view or view.zone ~= "room" then
+        return
+    end
+    local actions = self:actionsFor(view.card)
+    if press.held or press.fromMenu then
+        local tab = self:tabAt(press.key, mouseX, mouseY)
+        if tab then
+            self.menuKey = nil
+            self:playAction(view, actions[tab])
+        elseif press.fromMenu or not view:contains(mouseX, mouseY) then
+            self.menuKey = nil
+        end
+        return
+    end
+    local dx, dy = mouseX - press.x, mouseY - press.y
+    if dx * dx + dy * dy <= TOUCH_SLOP * TOUCH_SLOP then
+        self:playAction(view, actions[1])
+    end
+end
+
+-- A finger that stays on a card opens its tabs; one that wanders off before that cancels the press.
+function GameView:updateHold(x, y)
+    local press = self.press
+    if not press or press.held or press.fromMenu then
+        return
+    end
+    local dx, dy = x - press.x, y - press.y
+    if dx * dx + dy * dy > TOUCH_SLOP * TOUCH_SLOP then
+        self.press = nil
+    elseif love.timer.getTime() - press.time >= HOLD_TIME then
+        press.held = true
+        self.menuKey = press.key
+        self.views[press.key]:juiceUp(0.15)
+        self.assets.audio:play("click", { pitch = 1.3, volume = 0.6 })
+    end
+end
+
+function GameView:cancelTouch()
+    self.press = nil
+    self.menuKey = nil
 end
 
 function GameView:onKeyPressed(key)
@@ -639,15 +761,22 @@ function GameView:update(dt, hasFocus)
     local mouseX, mouseY = self.mouseProvider()
     if not hasFocus then
         mouseX, mouseY = -1000, -1000
+        self:cancelTouch()
     end
-    self:updateHover(mouseX, mouseY)
+    -- With a touch screen the cards react to a finger on the screen, not to where it last was.
+    local pointerX, pointerY = mouseX, mouseY
+    if self.touchMode and not self.press then
+        pointerX, pointerY = nil, nil
+    end
+    self:updateHover(pointerX or -1000, pointerY or -1000)
+    self:updateHold(mouseX, mouseY)
 
     for _, view in pairs(self.views) do
         if view.zone ~= "gone" and view.zone ~= "deck" then
             -- Potions that would be wasted this room are dimmed.
             local wasted = view.zone == "room" and view.card:isHeart() and self.state.potionUsedThisRoom
             view.tint = Anim.approach(view.tint, wasted and 0.65 or 1, 8, dt)
-            view:update(dt, mouseX, mouseY)
+            view:update(dt, pointerX, pointerY)
             self:updateExit(view)
         end
     end
@@ -662,26 +791,30 @@ function GameView:update(dt, hasFocus)
     self.undoButton.disabled = self.over or not self.state.canUndo
 
     self:updateFeedback(dt)
-    self.tabReveal = Anim.moveTowards(self.tabReveal, (self.focusKey and not self:isBusy()) and 1 or 0, dt * 8)
+    self.tabReveal = Anim.moveTowards(self.tabReveal, self:tabsOpen() and 1 or 0, dt * 8)
+end
+
+-- Tabs show under the hovered card; with touch, only under a card whose tabs were opened by holding it.
+function GameView:tabsOpen()
+    return self.focusKey ~= nil and not self:isBusy() and (self.menuKey ~= nil or not self.touchMode)
 end
 
 function GameView:updateHover(mouseX, mouseY)
     local focusKey = nil
     local tab = nil
     if not self.over then
-        if self.focusKey and not self:isBusy() then
-            tab = self:tabAt(self.focusKey, mouseX, mouseY)
-            if tab then
-                focusKey = self.focusKey
-            end
-        end
-        if not focusKey then
-            for slot = 1, CARDS_PER_ROOM do
-                local key = self.slots[slot]
-                local view = key and self.views[key]
-                if view and view.zone == "room" and view:contains(mouseX, mouseY) then
-                    focusKey = key
+        if self.menuKey then
+            focusKey = self.menuKey
+            tab = self:tabAt(focusKey, mouseX, mouseY)
+        else
+            if self.focusKey and not self.touchMode and not self:isBusy() then
+                tab = self:tabAt(self.focusKey, mouseX, mouseY)
+                if tab then
+                    focusKey = self.focusKey
                 end
+            end
+            if not focusKey then
+                focusKey = self:roomCardAt(mouseX, mouseY)
             end
         end
     end
@@ -694,7 +827,8 @@ function GameView:updateHover(mouseX, mouseY)
         end
     end
     self.focusKey = focusKey
-    self.hoverTab = tab or (focusKey and 1 or nil)
+    -- A mouse over the card body stands for its main action; a finger only picks a tab by touching it.
+    self.hoverTab = tab or ((focusKey and not self.touchMode) and 1 or nil)
 
     local zoneHover = self:zoneCardAt(mouseX, mouseY)
     for key, view in pairs(self.views) do
@@ -923,7 +1057,7 @@ function GameView:hintText()
     local toResolve = #state.room.cards - 1
     if toResolve >= CARDS_PER_ROOM - 1 then
         if state:canSkipRoom() then
-            return "Resolve 3 of these 4 cards in any order, or flee the room. Hover a card to see what it does."
+            return "Resolve 3 of these 4 cards in any order, or flee the room. Hover or hold a card to see what it does."
         end
         return "Resolve 3 of these 4 cards in any order. You fled the last room, so no fleeing now."
     end

@@ -184,14 +184,24 @@ function love.update(dt)
     stateStack:update(animationDt)
 end
 
-function love.mousepressed(x, y, button)
+-- istouch: the press comes from a touch screen (there is no hover, no right button).
+function love.mousepressed(x, y, button, istouch)
     if transition then
         return
     end
     local mouseX, mouseY = push:toGame(x, y)
     if mouseX and mouseY then
-        stateStack:onMouseClick(mouseX, mouseY, button)
+        stateStack:onMouseClick(mouseX, mouseY, button, istouch)
     end
+end
+
+function love.mousereleased(x, y, button, istouch)
+    if transition then
+        return
+    end
+    -- A press that began inside the game can end on the letterbox bars.
+    local mouseX, mouseY = push:toGame(x, y)
+    stateStack:onMouseReleased(mouseX or -1, mouseY or -1, button, istouch)
 end
 
 function love.keypressed(key)

@@ -23,6 +23,13 @@
       height: 100dvh;
       border: 0;
       padding: 0;
+      /* Holding a card opens its options, so the browser must not take touches for itself
+         (scrolling, zooming, selection, callouts). */
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
     #overlay {

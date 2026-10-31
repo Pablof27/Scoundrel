@@ -57,7 +57,7 @@ return {
             { suit = HEART, rank = 5, title = "POTIONS", color = "green",
               text = "Hearts heal their value, up to 20. Only one potion per room works: the next is wasted." },
         },
-        footer = "During a run, hover any card to see exactly what it will do.",
+        footer = "During a run, hover (or hold) any card to see exactly what it will do.",
     },
     {
         title = "ROOMS",
@@ -134,9 +134,9 @@ return {
     },
     {
         title = "CONTROLS & SCORE",
-        text = "Hover a card to see exactly what it will do. Click it to play it.\n\n" ..
+        text = "Hover a card (touch: hold it) to see exactly what it will do. Click or tap it to play it.\n\n" ..
             "Monsters: click the card to use your weapon, or click FISTS (or right-click the card) " ..
-            "to fight barehanded.\n\n" ..
+            "to fight barehanded. On a touch screen, hold the card to open its tabs.\n\n" ..
             "UNDO (U) takes back cards resolved in the current room. ESC opens the menu.\n\n" ..
             "Score: escaping scores your remaining health (plus the potion if your last card was one, " ..
             "drunk at full health). Dying scores your health minus every monster left.",
@@ -153,6 +153,7 @@ return {
             UI.text("-9", ax + 33 - fonts.small:getWidth("-9"), ay + 32, fonts.small, C.text)
             UI.textCentered("click the card = main action", ax, ay + 66, fonts.small, C.text)
             UI.textCentered("click a tab = that action", ax, ay + 80, fonts.small, C.text)
+            UI.textCentered("touch: hold the card to show the tabs", ax, ay + 94, fonts.small, C.textDim)
         end,
     },
 }

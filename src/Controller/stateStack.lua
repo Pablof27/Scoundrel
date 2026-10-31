@@ -53,10 +53,17 @@ function StateStack:update(dt)
     end
 end
 
-function StateStack:onMouseClick(mouseX, mouseY, button)
+function StateStack:onMouseClick(mouseX, mouseY, button, istouch)
     local top = self:top()
     if top then
-        top:onMouseClick(mouseX, mouseY, button)
+        top:onMouseClick(mouseX, mouseY, button, istouch)
+    end
+end
+
+function StateStack:onMouseReleased(mouseX, mouseY, button, istouch)
+    local top = self:top()
+    if top and top.onMouseReleased then
+        top:onMouseReleased(mouseX, mouseY, button, istouch)
     end
 end
 

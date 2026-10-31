@@ -23,6 +23,7 @@ A library of single-player card games built with [LÖVE2D](https://love2d.org/) 
 - Three difficulty levels (**Easy**, **Normal**, **Difficult**), chosen in Settings and applied to every new run
 - One-click play with previews: hovering a card shows exactly what it will do (damage, healing, weapon reach) on the card's action tabs, in the health bar and in a hint line
 - Explicit **WEAPON** / **FISTS** choice for monsters, a **FLEE** button that explains why it is unavailable, and the next room is dealt automatically
+- Plays on touch screens (the web version on a phone): tap a card to resolve it, hold it to preview it and pick **WEAPON** or **FISTS**
 - Run stats panel (health, room, cards left, time, difficulty, monsters and bosses slain, damage taken/blocked, potions, weapons, rooms fled)
 - End-of-run summary with the official Scoundrel scoring and your personal best (set by Difficult runs)
 - Undo for the cards resolved in the current room
@@ -121,6 +122,8 @@ As in the house rules, the deck is only shuffled every third hand (or when it ca
 | Click a card | Resolve it (monsters use your weapon when possible) |
 | Click a tab under a card | Resolve it that way (`WEAPON` / `FISTS`) |
 | Right-click a monster | Fight it barehanded |
+| Touch: tap a card | Resolve it (monsters use your weapon when possible) |
+| Touch: hold a card | Preview it and open its tabs: slide to `WEAPON` / `FISTS` and let go, or lift your finger and tap one |
 | `FLEE` button | Skip the current room |
 | `UNDO` button, `U`, `Backspace`, `Ctrl/Cmd+Z` | Undo the last card resolved in this room |
 | `Escape` | Pause menu |
