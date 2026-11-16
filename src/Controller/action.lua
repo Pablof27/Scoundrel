@@ -11,30 +11,30 @@
 local Action = {}
 Action.__index = Action
 
-Action.isUndo    = false
-Action.undoable  = false
+Action.isUndo = false
+Action.undoable = false
 Action.eventType = "stateChanged"
 
 -- Creates an action class. fields: defaults shared by its instances (eventType, undoable...).
 function Action.extend(fields)
-    local class = setmetatable(fields or {}, Action)
-    class.__index = class
-    return class
+	local class = setmetatable(fields or {}, Action)
+	class.__index = class
+	return class
 end
 
-function Action:execute(gameState)
-    return false
+function Action:execute(_)
+	return false
 end
 
 function Action:outcome(gameState)
-    return gameState.lastOutcome
+	return gameState.lastOutcome
 end
 
 -- Takes back the last undoable action (handled entirely by the Game controller).
 local UndoAction = Action.extend({ isUndo = true })
 
 function UndoAction:new()
-    return setmetatable({}, self)
+	return setmetatable({}, self)
 end
 
 Action.UndoAction = UndoAction
