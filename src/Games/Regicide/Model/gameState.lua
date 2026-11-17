@@ -72,6 +72,7 @@ function GameState:defend(cards)
 	for _, c in ipairs(cards) do
 		table.insert(self.discardPile, c)
 	end
+	self:togglePlayerState()
 end
 
 function GameState:selectionCanDefend(cards)
@@ -137,11 +138,11 @@ function GameState:playCards(cards)
 	if self.enemyLife == 0 then
 		self.playerDeck:addToTop(self.currentEnemy)
 		self:nextEnemy()
-		return
+		return true
 	elseif self.enemyLife < 0 then
 		table.insert(self.discardPile, self.currentEnemy)
 		self:nextEnemy()
-		return
+		return true
 	end
 
 	self:togglePlayerState()

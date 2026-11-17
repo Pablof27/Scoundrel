@@ -22,4 +22,5 @@ end
 
 return {
 	PlayCardAction = PlayCardAction,
+	DefendAction = DefendAction,
 }
