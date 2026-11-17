@@ -1,7 +1,5 @@
 ---@diagnostic disable: undefined-global
 
-local Action = require("src.Controller.action")
-
 function PlayCardAction:new(cards)
 	local o = setmetatable({}, self)
 	o.cards = cards
@@ -10,6 +8,16 @@ end
 
 function PlayCardAction:execute(gameState)
 	return gameState:playCards(self.cards)
+end
+
+function DefendAction:new(cards)
+	local o = setmetable({}, self)
+	o.cards = cards
+	return o
+end
+
+function DefendAction:execute(gameState)
+	return gameState:defend(cards)
 end
 
 return {
