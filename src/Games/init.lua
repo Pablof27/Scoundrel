@@ -23,7 +23,7 @@
 local Games = {
 	require("src.Games.Scoundrel"),
 	require("src.Games.Lobo"),
-	require("src.Games.Regicide"),
+	-- require("src.Games.Regicide"),
 }
 
 Games.byId = {}
