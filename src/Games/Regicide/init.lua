@@ -1,5 +1,6 @@
 local GameState = require("src.Games.Regicide.Model.gameState")
 local GameView = require("src.Games.Regicide.View.gameView")
+local ui = require("src.View.ui")
 
 local Regicide = {
 	id = "regicide",
@@ -22,11 +23,17 @@ local Regicide = {
 }
 
 function Regicide.newState(settings)
-	return GameState:new(settings:get("regicideTarget"))
+	--return GameState:new(settings:get("regicideTarget"))
 end
 
 function Regicide.newView(context, gameState)
-	return GameView:new(context, gameState)
+	--return GameView:new(context, gameState)
+	local view = {}
+	view.render = function(self)
+		love.graphics.print("Not implemented yet", 100, 100)
+	end
+	view.update = function(self) end
+	return view
 end
 
 function Regicide.playTag(_) end

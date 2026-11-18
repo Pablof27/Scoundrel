@@ -237,14 +237,14 @@ function LibraryView:renderPanel(panel, selected)
 		view:draw()
 	end
 
-	UI.textCentered(game.author, cx, y + 160, fonts.small, C.textDim)
-	UI.textCentered(game.recordsSummary(self.records[game.id]), cx, y + 178, fonts.small, C.text)
+	UI.textCentered(game.author, cx, y + 156, fonts.small, C.textDim)
+	UI.textCentered(game.recordsSummary(self.records[game.id]), cx, y + 174, fonts.small, C.text)
 	if selected then
 		local pulse = 0.6 + 0.4 * math.sin(self.time * 6)
 		UI.textCentered(
 			"CLICK TO PLAY",
 			cx,
-			y + PANEL_H - 10,
+			y + PANEL_H - 8,
 			fonts.tiny,
 			UI.mix(color, C.white, 0.4),
 			{ alpha = pulse, shadow = false }
