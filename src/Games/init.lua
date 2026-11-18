@@ -21,24 +21,25 @@
 ]]
 
 local Games = {
-    require("src.Games.Scoundrel"),
-    require("src.Games.Lobo"),
+	require("src.Games.Scoundrel"),
+	require("src.Games.Lobo"),
+	require("src.Games.Regicide"),
 }
 
 Games.byId = {}
 for _, game in ipairs(Games) do
-    Games.byId[game.id] = game
+	Games.byId[game.id] = game
 end
 
 -- The settings declared by every game.
 function Games.options()
-    local options = {}
-    for _, game in ipairs(Games) do
-        for _, option in ipairs(game.options or {}) do
-            table.insert(options, option)
-        end
-    end
-    return options
+	local options = {}
+	for _, game in ipairs(Games) do
+		for _, option in ipairs(game.options or {}) do
+			table.insert(options, option)
+		end
+	end
+	return options
 end
 
 return Games
