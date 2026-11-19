@@ -13,13 +13,13 @@ local PLAYER_STATES = { ATTACK = true, DEFEND = false }
 
 local function enemyCards()
 	local deck = Deck:new()
-	for i = 0, 2 do
+	for i = 1, 3 do
 		local cards = {}
 		for suit = 0, 3 do
 			table.insert(cards, Card:new(suit, 10 + i, 10 + 5 * i))
 			table.shuffle(cards)
-			deck:addToBottom(cards)
 		end
+		deck:addToBottom(cards)
 	end
 	return deck
 end
@@ -56,7 +56,6 @@ function GameState:new()
 		enemyKills = 0,
 		perfectKills = 0,
 	}
-
 	return o
 end
 
@@ -209,3 +208,5 @@ function GameState:applyClubs(n, suit)
 end
 
 function GameState:isOver() end
+
+return GameState

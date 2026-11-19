@@ -15,7 +15,7 @@ end
 
 function Deck:shuffle()
 	table.shuffle(self.cards)
-	return self.cards
+	return self
 end
 
 function Deck:top()

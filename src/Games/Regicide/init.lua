@@ -12,9 +12,9 @@ local Regicide = {
 	showcase = { { 0, 13 }, { 3, 12 }, { 2, 13 }, { 1, 11 } },
 	restartLabel = "NEW GAME",
 	rules = require("src.Games.Regicide.rules"),
-	options = {
-		key = "regicideTarget", --[[TODO]]
-	},
+	-- options = {
+	-- 	key = "regicideTarget", --[[TODO]]
+	-- },
 	records = {
 		file = "regicide_records.txt",
 		defaults = { --[[TODO]]
@@ -22,24 +22,24 @@ local Regicide = {
 	},
 }
 
-function Regicide.newState(settings)
-	--return GameState:new(settings:get("regicideTarget"))
+function Regicide.newState(_)
+	return GameState:new()
 end
 
 function Regicide.newView(context, gameState)
-	--return GameView:new(context, gameState)
-	local view = {}
-	view.render = function(self)
-		love.graphics.print("Not implemented yet", 100, 100)
-	end
-	view.update = function(self) end
-	return view
+	return GameView:new(context, gameState)
 end
 
 function Regicide.playTag(_) end
 
-function Regicide.registerResults(records, didWin, gameState)
-	-- TODO
+function Regicide.registerResult(records, didWin, gameState)
+	local _ = gameState.stats
+	records:add("matchesPlayed")
+	if didWin then
+		records:add("matchesWon")
+	end
+	records:save()
+	return {}
 end
 
 function Regicide.summary(result, record)
