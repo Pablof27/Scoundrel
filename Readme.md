@@ -4,6 +4,7 @@ A library of single-player card games built with [LÖVE2D](https://love2d.org/) 
 
 - **[Scoundrel](#scoundrel)**: the solo roguelike card game by Zach Gage and Kurt Bieg. Make it through a dungeon made from a deck of playing cards.
 - **[Lobo (The Wolf)](#lobo-the-wolf)**: the solitaire game by James Ernest (Crab Fragment Labs). Capture the Wolf's cards with yours, hand after hand, and race the Wolf to 100 points.
+- **[Regicide](#regicide)**: the solo fantasy card game by Paul Abrahams, Luke Badger and Andy Richdale (Badgers From Mars). Overthrow 12 corrupt Royals using suit powers, Animal Companions and combos.
 
 **[Play it in your browser](https://pablof27.github.io/Scoundrel/)**
 
@@ -12,7 +13,7 @@ A library of single-player card games built with [LÖVE2D](https://love2d.org/) 
 **Library**
 
 - A game selection screen, then a home screen per game with an illustrated **How to Play** tutorial and its records
-- **Settings** saved between sessions: each game's own options (Scoundrel's difficulty, Lobo's match length) plus the general ones (music and sound volume, fullscreen, CRT effect, screen shake, animation speed, card back, FPS counter)
+- **Settings** saved between sessions: each game's own options (Scoundrel's difficulty, Lobo's match length, Regicide's Solo Jesters) plus the general ones (music and sound volume, fullscreen, CRT effect, screen shake, animation speed, card back, FPS counter)
 - Procedurally generated audio: a looping soundtrack and every sound effect are synthesized in code at startup (no audio files)
 - Balatro-style card feel: spring physics, "juice" pops, idle sway, 3D tilt towards the mouse, dealing/flipping/burning animations, particles and screen shake
 - Pixel art card sprites, GLSL shaders (card tilt + dissolve, animated background, CRT post-processing)
@@ -35,6 +36,12 @@ A library of single-player card games built with [LÖVE2D](https://love2d.org/) 
 - The cub (the face-up top card of the deck) is always visible, and the sidebar counts the cards of each value still hidden in the deck
 - Match panel racing to 100 (or 50) points, a ledger of every hand, and an end-of-match summary with your statistics
 - **FOLD** asks for a second click, so a misclick never gives a hand away
+
+**Regicide**
+
+- Live combat preview on the Royal's HUD and in the sidebar: see exact damage, **EXACT!** kills (sending the purified Royal to the top of the Tavern deck), **IMMUNE** suit warnings and cumulative Spades shields before playing
+- Full solo rules: Animal Companions (`A = 1`) pairing with any card, equal-rank combos up to 10, Hearts resolving before Diamonds, and Solo Jesters (2, 1 or 0 chosen in Settings) with two-click confirmation
+- Royal Court progress tracker across the 4 Jacks, 4 Queens and 4 Kings, and **Gold**, **Silver** or **Bronze** Victory tracking based on Jesters used
 
 ## How to Play
 
@@ -112,6 +119,30 @@ Hands are played until you or the Wolf reach **100 points** (or 50, chosen in Se
 
 As in the house rules, the deck is only shuffled every third hand (or when it can't deal a hand), so the cards already played tell you what is left: the sidebar counts them for you. If the deck runs out during a hand, the discard pile is shuffled into a new deck.
 
+### Regicide
+
+**Goal:** Overthrow all 12 corrupt Royals in the Castle deck — 4 Jacks (`20 HP / 10 ATK`), then 4 Queens (`30 HP / 15 ATK`), then 4 Kings (`40 HP / 20 ATK`) — without running out of cards to attack or defend.
+
+**The Tavern deck:** 40 cards: `2` to `10` and 4 Animal Companions (`A = 1`) in all four suits. You hold up to **8 cards** in hand, with up to **2 Solo Jesters** set aside.
+
+#### Suit Powers
+
+Playing a card (or valid combination) deals its total attack value as damage and triggers each suit played at that total (**except the current Royal's own suit, which it is immune to**; Hearts always resolve before Diamonds):
+
+| Suit | Power | Effect |
+|------|-------|--------|
+| ♥ Hearts | Heal from discard | Shuffle the discard pile and move up to `N` cards face-down under the Tavern deck. |
+| ♦ Diamonds | Draw cards | Draw up to `N` cards from the Tavern deck (up to the 8-card hand limit). |
+| ♣ Clubs | Double damage | Deal `2 × N` damage during this attack. |
+| ♠ Spades | Shield | Reduce this Royal's attack by `N` (stacks until the Royal falls). |
+
+#### Companions, Combos & Exact Kills
+
+- **Animal Companions (`A = 1`):** Play alone, or pair with any one other card (even a `10` or a captured Royal). Both suits trigger at their combined total.
+- **Combos:** Play 2, 3 or 4 cards of the same number (not Aces) whose combined value is **10 or less** (`5+5`, `3+3+3`, `2+2+2+2`, etc.).
+- **Defeating Royals:** Reducing a Royal to `< 0 HP` sends it (and the cards played against it) to the discard pile. Hitting **exact `0 HP`** places the purified Royal face-down on **top of the Tavern deck**! In your hand, `J = 10`, `Q = 15`, `K = 20`.
+- **Counterattack & Solo Jesters:** If the Royal survives, discard cards from your hand totaling at least `ATK − Shield`. Before attacking or defending, you may flip a **Solo Jester** to discard your hand and draw 8 cards. Winning with **0, 1 or 2 Jesters** used earns a **Gold**, **Silver** or **Bronze** Victory.
+
 ## Controls
 
 ### Scoundrel
@@ -138,6 +169,17 @@ As in the house rules, the deck is only shuffled every third hand (or when it ca
 | `FOLD` button (twice) | End the hand: the Wolf scores its cards |
 | `NEXT HAND` button, `Enter`, `Space` | Deal the next hand |
 | Hover the deck, the piles or the sidebar | Explanations in the panel between the piles |
+| `Escape` | Pause menu |
+
+### Regicide
+
+| Input | Action |
+|-------|--------|
+| Click a card in your hand, `1`–`8` | Toggle card in your attack or defense (clicking an incompatible card in attack mode switches to it) |
+| Right-click, `Backspace`, `Delete` | Clear the selection |
+| `ATTACK` / `DEFEND` button, `Enter`, `Space` | Confirm the selected attack or defense |
+| `JESTER` button, `J` (twice) | Flip a Solo Jester: discard your hand and draw up to 8 cards |
+| Hover the Royal, decks, discard pile or sidebar | Explanations in the middle panel |
 | `Escape` | Pause menu |
 
 On the library screen, `Left`/`Right` and `Enter` pick a game. `Escape` goes back from a game's home screen to the library, and quits from the library.
@@ -235,6 +277,13 @@ src/
       Model/              — gameState.lua (match, hands, cub, shuffling, scoring), plays.lua (captures)
       Controller/         — actions.lua (Capture, Fold, Next hand)
       View/               — gameView.lua (table), sidebarView.lua (match, deck tracker, ledger)
+    Regicide/
+      init.lua            — Game descriptor (Solo Jesters option, records, Gold/Silver/Bronze summary...)
+      config.lua          — Royal stats, suit metadata, Jester counts and victory tiers
+      rules.lua           — How to Play pages
+      Model/              — gameState.lua (Castle & Tavern decks, companions, combos, suit powers, shields, Jesters)
+      Controller/         — actions.lua (Attack, Defend, Jester)
+      View/               — gameView.lua (board & Royal HUD), sidebarView.lua (Royal Court, suit powers, stats)
 lib/
   push.lua                — Resolution-independent rendering (modified to render at the screen's pixel density)
   timer.lua               — Tweens and timers

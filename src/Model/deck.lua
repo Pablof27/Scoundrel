@@ -22,6 +22,10 @@ function Deck:top()
 	return self.cards[1]
 end
 
+function Deck:addToTop(card)
+	table.insert(self.cards, 1, card)
+end
+
 function Deck:drawCards(n)
 	local drawnCards = {}
 	for _ = 1, n do
